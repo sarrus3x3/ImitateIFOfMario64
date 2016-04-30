@@ -63,6 +63,7 @@ public:
 	ParallelBox3D( 
 		Vector3D  SmallVertex,      // 立方体の頂点で、座標的に一番小さい
 		Vector3D  LargeVertex,      // 立方体の頂点で、座標的に一番大きい
+		int       TexturesHandle,   // テクスチャ画像のハンドル
 		COLOR_U8  DifColor, // 頂点ディフューズカラー
 		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
 		);
