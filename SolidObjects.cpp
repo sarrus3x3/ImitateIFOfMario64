@@ -186,9 +186,7 @@ ParallelBox3D::ParallelBox3D(
 		)
 {
 	// テクスチャ用の画像の読み込み
-    //m_iTexturesHandle = LoadGraph( "kirby_connect.bmp" ) ;
     m_iTexturesHandle = TexturesHandle ;
-
 
 	// Vertex を計算する
 	m_PolygonNum = 6*2;
@@ -314,3 +312,197 @@ void ParallelBox3D::Render()
 	DrawPolygon3D( m_pVertex, m_PolygonNum, m_iTexturesHandle, FALSE ) ;
 };
 
+// ###############################################
+// ########## class TextureSphere
+// ###############################################
+
+TextureSphere3D::TextureSphere3D( 
+		Vector3D  CntPos,           // 球中心の位置
+		double    Radius,           // 球の半径 
+		bool      Outward,          // true:外向き、false:内向き
+		int       DivNumLongi,      // 経度方向の分割数
+		int       DivNumLati,       // 緯度方向の分割数
+		int       TexturesHandle,   // テクスチャ画像のハンドル
+		COLOR_U8  DifColor, // 頂点ディフューズカラー
+		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
+		)
+{
+	// テクスチャ用の画像の読み込み
+    m_iTexturesHandle = TexturesHandle ;
+
+	// 中心位置保存
+	m_vCntPos = CntPos;
+
+	// ポリゴン三角形数だっけ？
+	m_iPolygonNum = DivNumLongi*DivNumLati*2;
+
+	// Vectexのメモリを確保 Vertex数：
+	int VectexNum = m_iPolygonNum * 3;
+	m_pVertex       = new VERTEX3D[VectexNum];
+	m_pRawVertexPos = new Vector3D[VectexNum];
+
+	// 頂点位置と、トポロジ構造、法線ベクトル、テキスチャマッピングを計算する
+	double LongiSlot = DX_TWO_PI / (double)DivNumLongi; // 緯度の分割幅
+	double LatiSlot  = DX_PI / (double)DivNumLati;      // 緯度の分割幅
+	double XTxSlot   = 1.0 / (double)DivNumLongi;       // テクスチャX軸方向の分割幅
+	double YTxSlot   = 1.0 / (double)DivNumLati;        // テクスチャY軸方向の分割幅
+
+	// 縦横全てのメッシュに対し
+	for( int i=0; i<DivNumLongi; i++ ){
+		for( int j=0; j<DivNumLati; j++ ){
+
+			// 頂点位置の計算
+			double LongiL = LongiSlot *  i;                 // 緯度L
+			double LongiR = LongiSlot * (i+1);              // 緯度R
+			double LatiB  = LatiSlot *  j    - (0.5*DX_PI); // 緯度B
+			double LatiT  = LatiSlot * (j+1) - (0.5*DX_PI); // 緯度T
+			Vector3D PolyBL( cos(LatiB)*cos(LongiL), sin(LatiB), cos(LatiB)*sin(LongiL) );
+			Vector3D PolyBR( cos(LatiB)*cos(LongiR), sin(LatiB), cos(LatiB)*sin(LongiR) );
+			Vector3D PolyTL( cos(LatiT)*cos(LongiL), sin(LatiT), cos(LatiT)*sin(LongiL) );
+			Vector3D PolyTR( cos(LatiT)*cos(LongiR), sin(LatiT), cos(LatiT)*sin(LongiR) );
+			PolyBL *= -Radius; // 半径を反映 + 向きを反転されるため-1をかける
+			PolyBR *= -Radius;
+			PolyTL *= -Radius;
+			PolyTR *= -Radius;
+
+			// テキスチャマッピング位置の計算
+			double TxL = XTxSlot *  i;         
+			double TxR = XTxSlot * (i+1);      
+			double TxB = YTxSlot *  j;
+			double TxT = YTxSlot * (j+1);
+			Vector2D TxBL( TxL, TxB );
+			Vector2D TxBR( TxR, TxB );
+			Vector2D TxTL( TxL, TxT );
+			Vector2D TxTR( TxR, TxT );
+
+			// 法線ベクトルの計算
+			double dist;
+			if( Outward ) dist =  1.0;
+			else          dist = -1.0;
+			Vector3D NorBL = (dist * PolyBL).normalize();
+			Vector3D NorBR = (dist * PolyBR).normalize();
+			Vector3D NorTL = (dist * PolyTL).normalize();
+			Vector3D NorTR = (dist * PolyTR).normalize();
+
+			int suffix = DivNumLati*i + j; // 縦横通番
+
+			// ##### m_pVertex
+			// 三角形１
+			//m_pVertex[ 6*suffix+0 ].pos = PolyBL.toVECTOR();
+			m_pVertex[ 6*suffix+0 ].u   = (float)TxBL.x;
+			m_pVertex[ 6*suffix+0 ].v   = (float)TxBL.y;
+			m_pVertex[ 6*suffix+0 ].norm= NorBL.toVECTOR();
+			//m_pVertex[ 6*suffix+1 ].pos = PolyBR.toVECTOR();
+			m_pVertex[ 6*suffix+1 ].u   = (float)TxBR.x;
+			m_pVertex[ 6*suffix+1 ].v   = (float)TxBR.y;
+			m_pVertex[ 6*suffix+1 ].norm= NorBR.toVECTOR();
+			//m_pVertex[ 6*suffix+2 ].pos = PolyTL.toVECTOR();
+			m_pVertex[ 6*suffix+2 ].u   = (float)TxTL.x;
+			m_pVertex[ 6*suffix+2 ].v   = (float)TxTL.y;
+			m_pVertex[ 6*suffix+2 ].norm= NorTL.toVECTOR();
+
+			// 三角形２
+			//m_pVertex[ 6*suffix+3 ].pos = PolyBR.toVECTOR();
+			m_pVertex[ 6*suffix+3 ].u   = (float)TxBR.x;
+			m_pVertex[ 6*suffix+3 ].v   = (float)TxBR.y;
+			m_pVertex[ 6*suffix+3 ].norm= NorBR.toVECTOR();
+			//m_pVertex[ 6*suffix+4 ].pos = PolyTL.toVECTOR();
+			m_pVertex[ 6*suffix+4 ].u   = (float)TxTL.x;
+			m_pVertex[ 6*suffix+4 ].v   = (float)TxTL.y;
+			m_pVertex[ 6*suffix+4 ].norm= NorTL.toVECTOR();
+			//m_pVertex[ 6*suffix+5 ].pos = PolyTR.toVECTOR();
+			m_pVertex[ 6*suffix+5 ].u   = (float)TxTR.x;
+			m_pVertex[ 6*suffix+5 ].v   = (float)TxTR.y;
+			m_pVertex[ 6*suffix+5 ].norm= NorTR.toVECTOR();
+
+			// ##### m_pRawVertexPos
+			// 三角形１
+			m_pRawVertexPos[ 6*suffix+0 ] = PolyBL;
+			m_pRawVertexPos[ 6*suffix+1 ] = PolyBR;
+			m_pRawVertexPos[ 6*suffix+2 ] = PolyTL;
+
+			// 三角形２
+			m_pRawVertexPos[ 6*suffix+3 ] = PolyBR;
+			m_pRawVertexPos[ 6*suffix+4 ] = PolyTL;
+			m_pRawVertexPos[ 6*suffix+5 ] = PolyTR;
+
+		}
+	}
+
+	// color と使わない要素を代入する
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].dif = DifColor;
+		m_pVertex[i].spc = SpcColor;
+		m_pVertex[i].su  = 0.0f;
+		m_pVertex[i].sv  = 0.0f;
+	}
+
+	// 中心位置をシフト
+	setCenterPos( m_vCntPos );
+
+	// マテリアルパラメータの初期化
+	m_Material.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Emissive = GetColorF( 1.0f, 1.0f, 1.0f, 1.0f ) ;
+	m_Material.Power    = 0.0f ;
+
+	m_MaterialDefault.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Emissive = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Power    = 20.0f ;
+};
+
+void TextureSphere3D::Render()
+{
+	// Zバッファ OFF
+	SetUseZBuffer3D( FALSE );
+	SetWriteZBuffer3D( FALSE );
+
+	// ライトの影響を受けないように設定
+	SetMaterialUseVertDifColor( FALSE ) ; // 頂点データのディフューズカラーを使用しないようにする
+	SetMaterialUseVertSpcColor( FALSE ) ; // 頂点データのスペキュラカラーを使用しないようにする
+	SetMaterialParam( m_Material ) ; // マテリアルの設定を有効
+
+	DrawPolygon3D( m_pVertex, m_iPolygonNum, m_iTexturesHandle, FALSE ) ;
+	//DrawPolygon3D( m_pVertex, m_iPolygonNum, DX_NONE_GRAPH , FALSE ) ;
+
+	// マテリアル設定を元に戻す
+	SetMaterialUseVertDifColor( TRUE ) ;
+	SetMaterialUseVertSpcColor( TRUE ) ;
+	SetMaterialParam( m_MaterialDefault ) ;
+
+	// Zバッファ有効化
+	SetUseZBuffer3D( TRUE );
+	SetWriteZBuffer3D( TRUE );
+
+	/*
+	// デバック
+	int VectexNum = m_iPolygonNum * 3;
+	for( int i=0; i<VectexNum; i++ )
+	{
+		DrawPixel3D( m_pVertex[i].pos, GetColor(255, 0, 0 ) );
+	};
+	*/
+
+	// vertex自体とpolygonはちゃんと生成されている。問題はテクスチャの設定か？
+	// →添字間違い
+	// まだ出ないか。
+	// m_iTexturesHandle を初期化するのをわすれていた。これはひどい。
+	// よし、成功
+
+
+};
+
+void TextureSphere3D::setCenterPos( Vector3D CntPos )
+{
+	int VectexNum = m_iPolygonNum * 3;
+
+	// 中心位置をシフト
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].pos = (m_pRawVertexPos[i]+CntPos).toVECTOR();
+	}
+};

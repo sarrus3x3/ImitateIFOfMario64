@@ -17,8 +17,9 @@ AnimationManager::AnimationManager() :
 	if( m_iModelHandleMaster == -1 )
 	{
 		// 次に読み込むモデルの物理演算モードをリアルタイム物理演算にする
-		MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_REALTIME ) ;
-
+		//MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_REALTIME ) ;
+		MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_DISABLE ) ;
+		
 		// モデルデータの読み込み
 		m_iModelHandleMaster = MV1LoadModel( "..\\mmd_model\\初音ミク.pmd" ) ;
 

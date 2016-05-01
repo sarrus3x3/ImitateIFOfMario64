@@ -76,4 +76,7 @@ public:
 
 	// 現在のカメラモード名を文字列で返却
 	std::string getCurCamModeName(); // CamMode追加要
+
+	// カメラ位置の取得
+	Vector3D getCamPos(){ return m_vFinalCamPos; };
 };

@@ -153,11 +153,23 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		GetColorU8( 255, 255, 255, 0 ),
 		GetColorU8( 255, 255, 255, 0 )
 		);
-
+	/*
 	ParallelBox3D ColorfullBox(
 		Vector3D( 0,0,0),
 		Vector3D( 20,20,20),
 		LoadGraph( "kirby_connect.bmp" ),
+		GetColorU8( 255, 255, 255, 0 ),
+		GetColorU8( 255, 255, 255, 0 )
+		);
+		*/
+
+	TextureSphere3D ExperimentSphere(
+		Vector3D( 0,0,0),
+		500.0,
+		false,
+		32,
+		32,
+		LoadGraph( "Resize_PanoramaPict.jpg" ),
 		GetColorU8( 255, 255, 255, 0 ),
 		GetColorU8( 255, 255, 255, 0 )
 		);
@@ -249,15 +261,16 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		// ################## 地面の模様の描画 #######################
 
+		// 背景パノラマの描画
+		ExperimentSphere.setCenterPos( CameraWorkManager::Instance()->getCamPos() ); // パノラマ球の中心位置をカメラ中心へ
+		ExperimentSphere.Render();
+
 		// 地面用の円盤を描画
 		//GroundDisk.Render();
 		GrateEarthGround.Render();
 
 		// 円柱の密林を描画
 		for( int i=0; i<MaxColumnsNum; i++ ){ ppColmunList[i]->Render(); }
-
-		// テクスチャ実験用の箱を描画
-		ColorfullBox.Render();
 
 		// ################## Entityの描画 #######################
 		PCEnti.Render();

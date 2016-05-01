@@ -73,4 +73,41 @@ public:
 
 };
 
+// テキスチャを貼り付けられる球
+// 【留意事項】
+// ・パノラマ球を最背面に描画するため、RenderでZバッファをOFFにしている。
+//   描画時はパノラマ球を一番初めに描画すること。（そうしないと、それより前に描画された図形が隠れてしまう！）
+class TextureSphere3D
+{
+private:
+	VERTEX3D* m_pVertex; // ポリゴン集合を保持
+	int m_iPolygonNum;   // ポリゴン数
 
+	// テクスチャ画像のハンドル
+	int m_iTexturesHandle;
+
+	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
+	Vector3D  m_vCntPos;       // 球の中心位置 
+	MATERIALPARAM m_Material;         // マテリアルパラメータ
+	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
+
+public:
+	// コンストラクタ
+	TextureSphere3D( 
+		Vector3D  CntPos,           // 球中心の位置
+		double    Radius,           // 球の半径
+		bool      Outward,          // true:外向き、false:内向き
+		int       DivNumLongi,      // 経度方向の分割数
+		int       DivNumLati,       // 緯度方向の分割数
+		int       TexturesHandle,   // テクスチャ画像のハンドル
+		COLOR_U8  DifColor, // 頂点ディフューズカラー
+		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
+		);
+
+	// 描画
+	void Render();
+
+	// 中心位置の設定（更新）
+	void setCenterPos( Vector3D CntPos );
+
+};
