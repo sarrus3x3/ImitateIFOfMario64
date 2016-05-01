@@ -111,3 +111,33 @@ public:
 	void setCenterPos( Vector3D CntPos );
 
 };
+
+// 地面に方眼紙模様を描画する機能を追加
+class GroundGrid
+{
+private:
+	double m_dGridRange; // グリッド範囲
+	int    m_iGridNum;   // グリッド数
+	// 原点を中心に、x軸、y軸 : [-m_dGridRange, m_dGridRange] の範囲にグリッドを描画する
+
+	// 直線の構造体
+	struct LINE
+	{
+		Vector3D to;
+		Vector3D from;
+	};
+
+	LINE* m_pVertiGrid; // 縦方向gird
+	LINE* m_pHorizGrid; // 横方向gird
+
+public:
+	// コンストラクタ
+	GroundGrid( 
+		double GridRange,	// グリッド範囲
+		int    GridNum 		// グリッド数
+		);
+
+	// 描画
+	void Render();
+
+};

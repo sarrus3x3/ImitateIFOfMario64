@@ -506,3 +506,40 @@ void TextureSphere3D::setCenterPos( Vector3D CntPos )
 		m_pVertex[i].pos = (m_pRawVertexPos[i]+CntPos).toVECTOR();
 	}
 };
+
+// ###############################################
+// ########## class GroundGrid
+// ###############################################
+
+GroundGrid::GroundGrid( 
+		double GridRange,	// グリッド範囲
+		int    GridNum 		// グリッド数
+		)
+{
+	m_dGridRange = GridRange;
+	m_iGridNum = GridNum;
+
+	m_pVertiGrid = new LINE[GridNum+1];
+	m_pHorizGrid = new LINE[GridNum+1];
+
+	double GridSize = (2*GridRange) / (double)GridNum;
+
+	// m_pVertiGrid と m_pHorizGrid を生成
+	for( int i=0; i<=m_iGridNum; i++ )
+	{
+		m_pHorizGrid[i].from = Vector2D( -m_dGridRange, GridSize*i-m_dGridRange ).toVector3D();
+		m_pHorizGrid[i].to   = Vector2D(  m_dGridRange, GridSize*i-m_dGridRange ).toVector3D();
+		m_pVertiGrid[i].from = Vector2D( GridSize*i-m_dGridRange, -m_dGridRange ).toVector3D();
+		m_pVertiGrid[i].to   = Vector2D( GridSize*i-m_dGridRange,  m_dGridRange ).toVector3D();	
+	}
+
+};
+
+void GroundGrid::Render()
+{
+	for( int i=0; i<=m_iGridNum; i++ )
+	{
+		DrawLine3D( m_pHorizGrid[i].from.toVECTOR(), m_pHorizGrid[i].to.toVECTOR(), GetColor( 255,255,255 ) );
+		DrawLine3D( m_pVertiGrid[i].from.toVECTOR(), m_pVertiGrid[i].to.toVECTOR(), GetColor( 255,255,255 ) );
+	}
+};

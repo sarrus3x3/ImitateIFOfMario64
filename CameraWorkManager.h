@@ -49,14 +49,15 @@ private:
 	double m_dSqDstCamToTrgtDef; // DstCamToTrgtDef * DstCamToTrgtDef
 
 	// ### メソッド ###
-	// カメラモード毎のUpdate関数を用意
+	// Update関数（カメラモード毎に用意）
 	void Update_RotateCamOnGazePoint( double timeslice );
 	void Update_TrackingMovingTarget( double timeslice );
 
-	// 補助メソッド
+	// ### 補助メソッド ###
 	// ① RotateCamOnGazePoint 用
 	void getKeyInput();
 	void getMouseWheelInput( double timeslice );
+
 
 public:
 	// シングルトン
@@ -77,6 +78,8 @@ public:
 	// 現在のカメラモード名を文字列で返却
 	std::string getCurCamModeName(); // CamMode追加要
 
-	// カメラ位置の取得
-	Vector3D getCamPos(){ return m_vFinalCamPos; };
+	// アクセサ
+	Vector3D getCamPos(){ return m_vFinalCamPos; }; // カメラ位置の取得
+	double   getCamDistFrmFP(){ return m_dCamDistFrmFP; };
+
 };
