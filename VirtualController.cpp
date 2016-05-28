@@ -113,6 +113,11 @@ void VirtualController::Update()
 	// ButX
 	if( KeyStateBuf[KEY_INPUT_X] ){ ButX.ButCounter++; }
 	else{ ButX.ButCounter=0; }
+
+	// ButY
+	if( KeyStateBuf[KEY_INPUT_Y] ){ ButY.ButCounter++; }
+	else{ ButY.ButCounter=0; }
+
 };
 
 void VirtualController::Render( Vector2D ControllerShift )

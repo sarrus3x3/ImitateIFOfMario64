@@ -3,6 +3,8 @@
 #include "DxLib.h"
 #include "PlayerCharacterEntity.h"
 
+#include "AnimationPhysics.h"
+
 //class PlayerCharacterEntity;
 
 
@@ -137,11 +139,6 @@ private:
 	double m_dBlendElapsed;     // ブレンド開始からの経過時間
 	double m_dAnimSwitchTime;   // アニメーション切替の設定時間
 
-	// 非線形マッピング再生 - ジャンプモーションで使用。ジャンプ時の滞空モーションを「引き延ばす」ため。
-	// bool     m_bUseNonlinearMapping; // 非線形マッピング再生を使用するか？
-	// static inline double NonlinearMappingPlayFrame( double RealTime ); // 時間→再生フレームを計算する非線形関数
-	// ★ m_bUseNonlinearMapping 別にいらないような気がしてきた... アニメーションの最後にとまるわけだし。あまりにも不自然に見えたら、改善するか
-
 	// アニメーション予約機能に関する
 	queue<ArgumentOfSetAnim> m_qAnimReservationQueue;
 
@@ -156,17 +153,6 @@ private:
 		bool StopPrvAnim=true, 
 		bool SyncToPrv=false 
 		); 
-
-
-	// #### 超補助メソッド ####
-	/*
-	inline void swap( AnimPlayBackInfo* pAnimInfo1, AnimPlayBackInfo* pAnimInfo2 )
-	{
-		AnimPlayBackInfo* pTmp = pAnimInfo1;
-		pAnimInfo1 = pAnimInfo2;
-		pAnimInfo2 = pTmp;
-	};
-	*/
 
 public:
 	// #### コンストラクタ・デストラクタ ####
@@ -199,6 +185,56 @@ public:
 	void  DrawAllow3D( Vector3D cnt, Vector3D heading ); // 矢印を描画
 	float getMotionTotalTime(){ return m_pCurAnimPlayInfo->m_MotionTotalTime; }
 
+// ############ 物理演算（髪の毛を揺らすとか）関連 ############
+public:
+	// 物理演算の種別（列挙型）
+	enum PhysicsTypeID
+	{
+		PHYSICS_NONE     = 0, // 物理演算なし
+		PHYSICS_SELFMADE = 1, // 自作の物理演算
+		PHYSICS_DXLIB    = 2  // DXライブラリ機能使用
+	};
+
+//private:
+	// 現在の物理演算の種別
+	PhysicsTypeID m_eCurPhysicsType;
+
+	// ボーン表示 / モデル表示（ ExpBoneOfPhysicsPart で使用）
+	bool m_bCurBoneExpress; // ON なら ボーン表示
+
+	//### 自作の物理演算（PHYSICS_SELFMADE）で使うインスタンス類
+	
+	// 右髪用
+	StraightMultiConnectedSpringModel *m_pRightHairPhysics;
+	MultiJointBoneMotionControl       *m_pRightHairRender;
+	int m_iRightHair1FrameIndex;  // "右髪１" フレーム （フレームの表示／非表示で使用）
+	
+	// 左髪用
+	StraightMultiConnectedSpringModel *m_pLeftHairPhysics;
+	MultiJointBoneMotionControl       *m_pLeftHairRender;
+	int m_iLeftHair1FrameIndex;   // "左髪１" フレーム （フレームの表示／非表示で使用）
+
+public:
+	//##### メソッド #####
+	//- 物理演算の種別を設定（ DXライブラリの物理演算、オリジナルの物理演算、物理演算なし ）
+	void setAnimPhysicsType( PhysicsTypeID id );
+	
+	//- 物理演算部（髪の毛）の ボーン表示 / モデル表示 の切替（オリジナルの物理演算の場合）
+	void ExpBoneOfPhysicsPart( bool BoneExpress ); // true-ボーン表示、false-モデル表示
+
+	bool getCurBoneExpress(){ return m_bCurBoneExpress; };
+	PhysicsTypeID getPhysicsType(){ return m_eCurPhysicsType; };
+
+private:
+	//###### 補助メソッド ######
+	//初期化
+	// - コンストラクタ内実行する
+	void initAnimPhysics();
+
+	//物理演算の実行、フレームに座標変換行列を設定
+	// - AnimationManager::PlayMain内、MV1DrawModel の直前で呼ぶ
+	void UpdateAnimPhysics( double TimeElaps );
+
 // ############ デバック用機能 ############
 private:
 	bool DBG_m_bPauseOn; // オンならAnimationを停止させる
@@ -208,11 +244,18 @@ public:
 	bool DBG_getPauseState(){ return DBG_m_bPauseOn; }
     Vector3D DBG_RenderCenterFramePos(); // 「センター」フレームの座標位置を描画する、ついでに座標位置を返却する。
 	void DBG_setCurPlayTimeOfCurAnim( float time ){ m_pCurAnimPlayInfo->m_CurPlayTime = time; };
+	int  DBG_getModelHandle(){ return m_iModelHandle; };
+
+	int  DGB_m_iHairFrameIndex;    // 髪フレーム
+	//MATRIX DGB_m_mHairFrameMatrix;   // 髪フレームのMatirix
+
+	// コンストラクタで初期化後に、モデルを変更したい場合に使用。デバック用の実装
+	// AnimManagerが複数インスタンス合った場合の動作は保証しないよん。
+	void DBG_RenewModel( int ReneModelHandle ); // 更新したいモデルのハンドルを渡すこと
+	
+	int DBG_m_iModelHandle_Original; // オリジナルのモデルのハンドルの退避用
+	int DBG_m_iModelHandle_Physics;  // 物理演算ありで読み込んだモデルのハンドル
+	int DBG_m_iModelHandle_HideHair; // 髪の毛削除を削除したモデルのハンドル
+
 };
 
-/*
-double AnimationManager::NonlinearMappingPlayFrame( double RealTime )
-{
-	return RealTime / (RealTime+1.0);
-};
-*/

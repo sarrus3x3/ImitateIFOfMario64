@@ -2,6 +2,8 @@
 
 #include "AnimationManager.h"
 
+#define DEBUG_SWITCH_PHYSICS_TYPE
+
 int AnimationManager::m_iModelHandleMaster = -1; // m_iModelHandle の初期化。（静的メンバ変数）
 
 // #### コンストラクタ ####
@@ -17,8 +19,9 @@ AnimationManager::AnimationManager() :
 	if( m_iModelHandleMaster == -1 )
 	{
 		// 次に読み込むモデルの物理演算モードをリアルタイム物理演算にする
-		//MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_REALTIME ) ;
-		MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_DISABLE ) ;
+		
+		//MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_DISABLE ) ;
+		MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_REALTIME ) ;
 		
 		// モデルデータの読み込み
 		m_iModelHandleMaster = MV1LoadModel( "..\\mmd_model\\初音ミク.pmd" ) ;
@@ -33,10 +36,32 @@ AnimationManager::AnimationManager() :
 		m_iModelHandle = MV1DuplicateModel( m_iModelHandleMaster );
 	}
 
+#ifdef DEBUG_SWITCH_PHYSICS_TYPE
+	// ######## [DBG] ゲームの途中でモデルを変更する ########
+
+	// オリジナルのモデルのハンドルを退避
+	DBG_m_iModelHandle_Original = m_iModelHandle;
+
+	// 髪の毛削除を削除したモデルのハンドル
+	DBG_m_iModelHandle_HideHair = MV1LoadModel( "..\\mmd_model\\初音ミク（髪の毛削除）.pmd" ) ;
+
+	// 物理演算ありで読み込んだモデルのハンドル
+	MV1SetLoadModelUsePhysicsMode( DX_LOADMODEL_PHYSICS_REALTIME );
+	DBG_m_iModelHandle_Physics = MV1LoadModel( "..\\mmd_model\\初音ミク.pmd" ) ;
+
+	// ######## 
+#endif
+
 	// 「センター」フレームのフレーム番号を取得
 	m_iCenterFrameIndex = MV1SearchFrame( m_iModelHandle, "センター" );
 	assert( m_iCenterFrameIndex>=0 && "Fail to MV1SearchFrame." );
 
+	// 「右髪１」フレームのフレーム番号を取得
+	DGB_m_iHairFrameIndex = MV1SearchFrame( m_iModelHandle, "右髪１" ); // ★やはりIKフレームは操作できないのか...
+	//DGB_m_iHairFrameIndex = MV1SearchFrame( m_iModelHandle, "右ひじ" );
+	assert( DGB_m_iHairFrameIndex>=0 && "Fail to MV1SearchFrame." );
+
+#ifndef DEBUG_SWITCH_PHYSICS_TYPE
 	// 輪郭異常の補正
 	int MaterialNum, i ;
 	MaterialNum = MV1GetMaterialNum( m_iModelHandle ) ;		// マテリアルの数を取得
@@ -53,12 +78,29 @@ AnimationManager::AnimationManager() :
 		MV1SetMaterialOutLineWidth( m_iModelHandle, i, 0.0f ) ;
 
 		// ### マテリアルのアンビエントカラーを無しに（真黒に）
-		MV1SetMaterialAmbColor( m_iModelHandle, i, GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ) ;
+		//MV1SetMaterialAmbColor( m_iModelHandle, i, GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ) ;
 	
 	}
+#endif
 
-	// モデルの方向をx軸正方向に修正。（デフォルトではz軸方向に向いてるっぽいので。）
-	// → 回転値を設定するたびに初期化されるから意味ねー。
+#ifdef DEBUG_SWITCH_PHYSICS_TYPE
+	int ModelHandleList[3] = { 
+		DBG_m_iModelHandle_Original, 
+		DBG_m_iModelHandle_HideHair, 
+		DBG_m_iModelHandle_Physics };
+
+	for( int j=0; j<3; j++ )
+	{
+		int MaterialNum, i ;
+		MaterialNum = MV1GetMaterialNum( ModelHandleList[j] ) ;		// マテリアルの数を取得
+		for( i = 0 ; i < MaterialNum ; i ++ )
+		{
+			// ### 輪郭線を消す
+			MV1SetMaterialOutLineDotWidth( ModelHandleList[j], i, 0.0f ) ;
+			MV1SetMaterialOutLineWidth( ModelHandleList[j], i, 0.0f ) ;
+		}
+	}
+#endif
 
 	// m_pCurAnimPlayInfo と m_pPrvAnimPlayInfo の初期化
 	m_pCurAnimPlayInfo = new AnimPlayBackInfo;
@@ -68,6 +110,9 @@ AnimationManager::AnimationManager() :
 
 	m_pCurAnimPlayInfo->m_bRemoved = true;
 	m_pPrvAnimPlayInfo->m_bRemoved = true;
+
+	// アニメーションの物理演算関連の初期化
+	initAnimPhysics();
 
 };
 void AnimationManager::CleanUpAnim( AnimPlayBackInfo* pAnimInfo )
@@ -88,7 +133,8 @@ void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, Play
 
 	// （MotionIDに従い）m_AttachIndex の設定
 	int CurAttachedMotion = pAnimUnq->m_CurAttachedMotion;
-	if( CurAttachedMotion>=0 ){
+	if( CurAttachedMotion>=0 )
+	{
 		pAnimInfo->m_AttachIndex = MV1AttachAnim( m_iModelHandle, CurAttachedMotion, -1, FALSE ) ;
 	}
 
@@ -266,6 +312,9 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	DrawAllow3D( Pos, Head );
 	DrawLine3D( Pos.toVECTOR(), (Pos+10*Head).toVECTOR(), GetColor( 255, 0, 0 ) );
 
+	// アニメーションの物理演算実行
+	UpdateAnimPhysics( TimeElaps );
+
 	// モデルの描画
     MV1DrawModel( m_iModelHandle ) ;
 
@@ -322,7 +371,10 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 	}
 
     // 再生時間をセットする
-    MV1SetAttachAnimTime( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_CurPlayTime ) ;
+	if( pPlayAnim->m_AttachIndex != -1 )
+	{
+		MV1SetAttachAnimTime( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_CurPlayTime ) ;
+	}
 
 	// センター位置が固定になるように、モデル（描画）位置を補正するベクトル CorrectionVec を計算する
 	Vector3D CorrectionVec( 0, 0, 0 );
@@ -395,6 +447,125 @@ void AnimationManager::DrawAllow3D( Vector3D cnt, Vector3D heading )
 	SetWriteZBuffer3D( TRUE );
 };
 
+void AnimationManager::initAnimPhysics()
+{
+	// メンバの初期化・設定
+	m_eCurPhysicsType = PHYSICS_NONE; // 物理演算なし
+	//m_eCurPhysicsType = PHYSICS_DXLIB; // Dxライブラリ
+	
+	m_bCurBoneExpress = false;        // モデル表示
+
+	std::vector<int> FrameIndexList(8);
+
+	// 各種物理パラメータ
+	double M = 1.0;    // 質点の重量（固定）
+	double V = 10.0;    // 粘性抵抗（固定）
+	double G = 250.0;     // 重力定数
+	double S = 1000.0;  // バネ定数（ベース）
+	double N = 0.9;      // 自然長算出する上での補正係数
+
+	// 右髪用インスタンス化
+	FrameIndexList[0] = MV1SearchFrame( m_iModelHandle, "頭" );
+	FrameIndexList[1] = MV1SearchFrame( m_iModelHandle, "右髪１" );
+	FrameIndexList[2] = MV1SearchFrame( m_iModelHandle, "右髪２" );
+	FrameIndexList[3] = MV1SearchFrame( m_iModelHandle, "右髪３" );
+	FrameIndexList[4] = MV1SearchFrame( m_iModelHandle, "右髪４" );
+	FrameIndexList[5] = MV1SearchFrame( m_iModelHandle, "右髪５" );
+	FrameIndexList[6] = MV1SearchFrame( m_iModelHandle, "右髪６" );
+	FrameIndexList[7] = MV1SearchFrame( m_iModelHandle, "右髪７" );
+
+	m_pRightHairPhysics = new StraightMultiConnectedSpringModel( m_iModelHandle, FrameIndexList, 7, M, V, G, S, N );
+	m_pRightHairRender  = new MultiJointBoneMotionControl( m_iModelHandle, FrameIndexList, 6 );
+	m_iRightHair1FrameIndex = FrameIndexList[1];
+
+	// 左髪用インスタンス化
+	FrameIndexList[0] = MV1SearchFrame( m_iModelHandle, "頭" );
+	FrameIndexList[1] = MV1SearchFrame( m_iModelHandle, "左髪１" );
+	FrameIndexList[2] = MV1SearchFrame( m_iModelHandle, "左髪２" );
+	FrameIndexList[3] = MV1SearchFrame( m_iModelHandle, "左髪３" );
+	FrameIndexList[4] = MV1SearchFrame( m_iModelHandle, "左髪４" );
+	FrameIndexList[5] = MV1SearchFrame( m_iModelHandle, "左髪５" );
+	FrameIndexList[6] = MV1SearchFrame( m_iModelHandle, "左髪６" );
+	FrameIndexList[7] = MV1SearchFrame( m_iModelHandle, "左髪７" );
+
+	m_pLeftHairPhysics = new StraightMultiConnectedSpringModel( m_iModelHandle, FrameIndexList, 7, M, V, G, S, N );
+	m_pLeftHairRender  = new MultiJointBoneMotionControl( m_iModelHandle, FrameIndexList, 6 );
+	m_iLeftHair1FrameIndex = FrameIndexList[1];
+
+};
+
+void AnimationManager::UpdateAnimPhysics( double TimeElaps )
+{
+	if( m_eCurPhysicsType == PHYSICS_SELFMADE )
+	{
+		// 右髪
+		m_pRightHairPhysics->Update( TimeElaps );
+		m_pRightHairRender->setBoneAsJointList( m_pRightHairPhysics->m_vPosList );
+		if( m_bCurBoneExpress ) m_pRightHairPhysics->DebugRender();
+
+		// 左髪
+		m_pLeftHairPhysics->Update( TimeElaps );
+		m_pLeftHairRender->setBoneAsJointList( m_pLeftHairPhysics->m_vPosList );
+		if( m_bCurBoneExpress ) m_pLeftHairPhysics->DebugRender();
+	}
+	else if( m_eCurPhysicsType == PHYSICS_DXLIB )
+	{
+		static const float rate = 10.0;
+		MV1PhysicsCalculation( m_iModelHandle, rate * (float)(TimeElaps*1000) );
+	}
+
+
+};
+
+void AnimationManager::ExpBoneOfPhysicsPart( bool BoneExpress )
+{
+	if( !m_bCurBoneExpress && BoneExpress )
+	{ // モデル表示 → ボーン表示
+		// 髪のフレームを非表示にする。
+		DBG_RenewModel( DBG_m_iModelHandle_HideHair );
+	}
+	else if( m_bCurBoneExpress && !BoneExpress )
+	{ // ボーン表示 → モデル表示
+		// 髪のフレームを表示に戻す
+		DBG_RenewModel( DBG_m_iModelHandle_Original );
+	}
+	
+	m_bCurBoneExpress = BoneExpress;
+
+};
+
+void AnimationManager::setAnimPhysicsType( PhysicsTypeID id )
+{
+	// 前の状態のお掃除（一度、物理演算なしの状態に戻す）
+	if( m_eCurPhysicsType == PHYSICS_SELFMADE )
+	{
+		// 座標変換行列をデフォルトに戻す
+		m_pRightHairRender->Reset();
+		m_pLeftHairRender->Reset();
+
+		// 髪を非表示にしてる場合をもどしたりとか
+
+	}
+	else if( m_eCurPhysicsType == PHYSICS_DXLIB )
+	{
+		DBG_RenewModel( DBG_m_iModelHandle_Original );
+	}
+
+	// 今回の状態の設定
+	if( id == PHYSICS_SELFMADE )
+	{
+		// ジョイント位置をフレーム位置に設定する
+		m_pRightHairPhysics->setJointPosAsFrame();
+		m_pLeftHairPhysics->setJointPosAsFrame();
+	}
+	else if( id == PHYSICS_DXLIB )
+	{
+		DBG_RenewModel( DBG_m_iModelHandle_Physics );
+	}
+
+	m_eCurPhysicsType = id;
+};
+
 Vector3D AnimationManager::DBG_RenderCenterFramePos()
 {
 	// フレームの現在のワールド座標を取得
@@ -412,3 +583,48 @@ Vector3D AnimationManager::DBG_RenderCenterFramePos()
 	return Vector3D(FramePosVEC);
 };
 
+void AnimationManager::DBG_RenewModel( int ReneModelHandle )
+{
+	// 保持している変数で、すげ替える必要があるのは、
+	// m_iModelHandle
+	// m_pCurAnimPlayInfo->m_AttachIndex
+	// m_pPrvAnimPlayInfo->m_AttachIndex
+
+	AnimPlayBackInfo* AnimInfoList[2]={ m_pCurAnimPlayInfo, m_pPrvAnimPlayInfo };
+
+	// 古いモデルにアタッチされたアニメーションを一度デタッチ
+	for( int i=0; i<2; i++ )
+	{
+		if(!(AnimInfoList[i]->m_bRemoved))
+		{
+			MV1DetachAnim( m_iModelHandle, AnimInfoList[i]->m_AttachIndex ); // 古いアニメーションのデタッチ（デタッチしないとAnimationが混じって変なことになる）
+		}
+	}
+
+	// FrameIndex系は大丈夫なはず（ボーンは触ってないので）
+
+	// モデルハンドルを渡されたものに更新
+	m_iModelHandle = ReneModelHandle;
+
+	// アニメーションを新しいモデルに再度アタッチ
+	// AnimPlayInfo->m_AttachIndex を更新
+	for( int i=0; i<2; i++ )
+	{
+		if(!(AnimInfoList[i]->m_bRemoved))
+		{
+			int CurAttachedMotion = AnimInfoList[i]->getAnimUnqPointer()->m_CurAttachedMotion;
+			if( CurAttachedMotion>=0 )
+			{
+				AnimInfoList[i]->m_AttachIndex = MV1AttachAnim( m_iModelHandle, CurAttachedMotion, -1, FALSE ) ;
+			}
+		}
+	}
+
+	// 物理演算用のサブファンクションの持ってるモデルハンドルも更新する必要がある
+	m_pRightHairPhysics->DBG_RenewModelHandles( m_iModelHandle );
+	m_pRightHairRender->DBG_RenewModelHandles( m_iModelHandle );
+	m_pLeftHairPhysics->DBG_RenewModelHandles( m_iModelHandle );
+	m_pLeftHairRender->DBG_RenewModelHandles( m_iModelHandle );
+
+
+};

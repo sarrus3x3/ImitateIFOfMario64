@@ -153,9 +153,12 @@ public:
 	{
 		Vector3D tmp;
 		double len = this->len();
-		tmp.x = x/len;
-		tmp.y = y/len;
-		tmp.z = z/len;
+		if( len > 0 )
+		{
+			tmp.x = x/len;
+			tmp.y = y/len;
+			tmp.z = z/len;
+		}
 		return tmp;
 	};
 	

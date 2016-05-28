@@ -16,6 +16,20 @@
 #include "CameraWorkManager.h"
 #include "SolidObjects.h"
 
+// デバック用
+#include "AnimationManager.h"
+
+
+// ########### 制御用 defin ###########
+
+//#define MONUMENT_ON // モニュメント（円柱の密林）あり
+
+#define GROUND_MESH_ON  // 地面の方眼模様あり
+
+
+// ####################################
+
+
 // 2016/03/16
 // 歩きのモーション → 地面：アニメ＝8:20 ぐらいがちょうどいい。
 
@@ -88,7 +102,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	SetCameraNearFar( 1.0f, 1500.0f ) ; // カメラの 手前クリップ距離と 奥クリップ距離を設定
 
 	// ################## 地面の模様描画に使用する変数の準備 #######################
-	
+
+#ifdef MONUMENT_ON	
 	// 円柱の密林を生成する
 	int    MaxColumnsNum     = 250;
 	double ColumnForestRange = 4*250.0;
@@ -162,7 +177,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		GetColorU8( 255, 255, 255, 0 )
 		);
 		*/
+#endif
 
+#ifdef GROUND_MESH_ON
+	// 方眼メッシュのインスタンス化
+	GroundGrid ObjGroundGrid( 1000.0, 100 );
+
+#endif
+
+	// 背景パノラマ球のインスタンス化
 	TextureSphere3D ExperimentSphere(
 		Vector3D( 0,0,0),
 		500.0,
@@ -229,6 +252,26 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		//MV1SetRotationXYZ( ModelHandle, VGet( angleX, angleY, 0.0f ) ) ;
 
+		// Xボタン（Xキー）が押されたら、物理演算モード変更
+		if( VController.ButX.isNowPush() )
+		{
+			static int phystype = 0;
+			phystype = (++phystype)%3 ;
+			PCEnti.m_pAnimMgr->setAnimPhysicsType( (AnimationManager::PhysicsTypeID)phystype );
+
+			// PHYSICS_NONE
+			// PHYSICS_SELFMADE
+			// PHYSICS_DXLIB
+
+		}
+
+		// Yボタン（yキー）が押されたら、ボーン表示／モデル表示切替
+		if( VController.ButY.isNowPush() )
+		{
+			PCEnti.m_pAnimMgr->ExpBoneOfPhysicsPart( !PCEnti.m_pAnimMgr->getCurBoneExpress() );
+			MV1PhysicsResetState( PCEnti.m_pAnimMgr->DBG_getModelHandle() ); // 物理演算状態をリセット（これで発散するのが回避できる？）→ 上手くいかない
+		}
+
 
 		// ################## EntityのUpdate #######################
 		PCEnti.Update( timeelaps );
@@ -265,12 +308,20 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		ExperimentSphere.setCenterPos( CameraWorkManager::Instance()->getCamPos() ); // パノラマ球の中心位置をカメラ中心へ
 		ExperimentSphere.Render();
 
+#ifdef MONUMENT_ON
 		// 地面用の円盤を描画
 		//GroundDisk.Render();
 		GrateEarthGround.Render();
 
 		// 円柱の密林を描画
 		for( int i=0; i<MaxColumnsNum; i++ ){ ppColmunList[i]->Render(); }
+#endif
+
+#ifdef GROUND_MESH_ON
+		// 地面の方眼模様を描画
+		ObjGroundGrid.Render(); // 素晴らしい..
+#endif
+
 
 		// ################## Entityの描画 #######################
 		PCEnti.Render();
@@ -297,6 +348,23 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		// Entityの速度を表示
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Speed:%8f",PCEnti.Speed() ); 
+		colmun++;
+
+		// 現在のアニメーション物理演算種別
+		DrawFormatString( 0, width*colmun, 0xffffff, "AnimationPhysicsType:%d", PCEnti.m_pAnimMgr->getPhysicsType() ); 
+		colmun++;
+
+		// 現在のボーン表示／モデル表示
+		DrawFormatString( 0, width*colmun, 0xffffff, "AnimationPhysics-CurBoneExpress:%d", PCEnti.m_pAnimMgr->getCurBoneExpress() ); 
+		colmun++;
+
+		DrawFormatString( 0, width*colmun, 0xffffff, 
+			"AnimationPhysics-CurBoneExpress(DXlib):%d", 
+			MV1GetFrameVisible( 
+				PCEnti.m_pAnimMgr->DBG_getModelHandle(), 
+				PCEnti.m_pAnimMgr->m_iLeftHair1FrameIndex 
+				)
+			); 
 		colmun++;
 
 		// 少しsleep

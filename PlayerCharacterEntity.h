@@ -91,18 +91,20 @@ public:
 	// #### Anmation識別enumを定義 ####
 	enum AnimationID
 	{
-		Standing = 0,  // 立ち
-		Walking  = 1,  // 歩き
-		Running  = 2,  // 走り
-		Jumping  = 3,  // ジャンプ
-		Jump_PreMotion = 4, // ジャンプ前の"溜め"のモーション
-		Jump_Ascent    = 5, // ジャンプ上昇中
-		Jump_Descent   = 6, // ジャンプ下降中
-		Jump_Landing   = 7,  // ジャンプ後の着地
-		Jump_Landing_Short = 8  // ジャンプ後の着地（センター位置がもっとも下がるところまで。ジャンプ着地→走り出しのアニメーションで使用するため）
+		NoAnim   = 0,  // アニメーション設定なし※他のアニメーション再生後には設定できない？（全てのアニメーションをデタッチしても、アニメーションが初期化されないDXライブラリの仕様？）
+		Standing = 1,  // 立ち
+		Walking  = 2,  // 歩き
+		Running  = 3,  // 走り
+		Jumping  = 4,  // ジャンプ
+		Jump_PreMotion = 5, // ジャンプ前の"溜め"のモーション
+		Jump_Ascent    = 6, // ジャンプ上昇中
+		Jump_Descent   = 7, // ジャンプ下降中
+		Jump_Landing   = 8,  // ジャンプ後の着地
+		Jump_Landing_Short = 9,  // ジャンプ後の着地（センター位置がもっとも下がるところまで。ジャンプ着地→走り出しのアニメーションで使用するため）
+		DBG_HairUp = 10
 	};
 
-	static const int m_iAnimIDMax=9;
+	static const int m_iAnimIDMax=11;
 
 	// #### アニメーション固有情報管理クラス
 	// 全てのアニメーション固有情報が格納されたコンテナを管理するためのシングルトン

@@ -135,6 +135,10 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// 全てのアニメーションについて、AnimUniqueInfo を定義していく
 	AnimUniqueInfo *pAnimUnq;
 
+	// --------- NoAnim --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[NoAnim];
+	pAnimUnq->init();
+
 	// --------- Standing --------- 
 	// Jumpingのモーションの立ち絵を切り出して利用
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Standing];
@@ -217,5 +221,11 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation   = true;
 	pAnimUnq->m_fAnimStartTime      = 31.35f; // ※２
 	pAnimUnq->m_fAnimEndTime        = 33.35f;  // 重心が一番低いタイミング＋少し長めに取ってみる
+
+	// --------- DBG_HairUp --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[DBG_HairUp];
+	pAnimUnq->init();
+	pAnimUnq->m_CurAttachedMotion = 5; 
+
 
 };

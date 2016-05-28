@@ -110,7 +110,7 @@ void CameraWorkManager::Update_RotateCamOnGazePoint( double timeslice )
 	static bool     nowDruging=false;      // 今ドラッグ中か？
 
 	// キー入力から、m_dTilt と m_dHead を更新
-	getKeyInput();
+	//getKeyInput();
 
 	// スクロール操作から、カメラと注視点の距離を更新
 	getMouseWheelInput(timeslice);
