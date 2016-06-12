@@ -3,8 +3,11 @@
 #include "DxLib.h"
 
 // 基本ライブラリ
+#include "MyUtilities.h"
 #include "Vector3D.h"
 #include "Vector2D.h"
+
+#define DBG_MEASURE_TIME
 
 // アニメーションの物理演算（髪の毛を揺らすとか）関連クラス
 
@@ -41,7 +44,7 @@ public:
 
 	// 引数のJointPosList（ワールド座標）に従い、ボーン（フレーム）を設定する
 	// JointPosList のサイズは、m_iJointSize。 
-	void setBoneAsJointList( std::vector<Vector3D> &JointPosList ); 
+	void setBoneAsJointList( Vector3D *pJointPosList ); 
 
 	// 座標変換行列をデフォルトに戻す
 	void Reset();
@@ -62,6 +65,8 @@ private:
 	int m_iModelHandle;
 
 	// #### パラメータ
+	static double m_dTimeElapsedPhys; // 物理演算のタイムステップ。ゲームのタイムステップと独立に設定可能
+
 	double m_dMass;    // 質点の重量（固定）
 	double m_dViscous; // 粘性抵抗（固定）
 	double m_dGravity; // 重力定数
@@ -73,13 +78,24 @@ private:
 	std::vector<double> m_dSpringList;       // バネ定数のリスト
 	std::vector<double> m_dNaturalList;      // バネの自然長のリスト
 
+	// #### 内部用メソッド
+
+	// i番目の質点に働く力を計算（を m で割ったもの）
+	Vector3D ForceWorksToMassPoint( int i, Vector3D *pPosList, Vector3D *pVecList );
+
+	void UpdateMain(double time_elapsed);         // 物理演算実施（Δtを引数）
+	void UpdateByEuler(double time_elapsed); 	  // オイラー法による数値計算
+	void UpdateByRungeKutta(double time_elapsed); // ルンゲクッタ法（４次）による数値計算
+
 public:
 	// ### 物理変数
-	std::vector<Vector3D> m_vPosList; // 質点の位置リスト ※[0]はルート関節であり位置固定（フレーム位置から取得される）
-	std::vector<Vector3D> m_vVelList; // 質点の速度リスト
+	Vector3D *m_pPosList;  // 質点の位置リスト ※[0]はルート関節であり位置固定（フレーム位置から取得される）
+	Vector3D *m_pVelList;  // 質点の速度リスト
 
 	// ### アクセサ
-	int getJointSize(){ return m_iJointSize; };
+	int    getJointSize(){ return m_iJointSize; };
+	void   setTimeElapsedPhys( double time_elapsed ){ m_dTimeElapsedPhys = time_elapsed; };
+	double getTimeElapsedPhys( ){ return m_dTimeElapsedPhys; };
 
 public:
 
@@ -96,7 +112,9 @@ public:
 		double NaturalFactor
 		);
 
-	void Update(double time_elapsed); // 物理演算実施（Δtを引数）
+	// time_elapsedとm_dTimeElapsedPhysから計算して、必要な回数だけUpdateMainを実行する
+	// 戻り値：UpdateMain 実行した回数
+	int  Update(double time_elapsed); 
 
 	void DebugRender(); // 描画（デバッグ用）
 
@@ -104,8 +122,12 @@ public:
 
 // ############ デバック用機能 ############
 	void DBG_RenewModelHandles( int newModelHandle ){ m_iModelHandle=newModelHandle; };
-	
 
+#ifdef DBG_MEASURE_TIME
+	// UpdateMain 1回あたりの平均処理時間（秒）
+	double DBG_m_dAverageTimeForUpdate;
+	MeasureFPS DBG_m_MeasureFPS;
+#endif
 
 };
 

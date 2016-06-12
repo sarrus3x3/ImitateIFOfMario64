@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "AnimationManager.h"
+#include "SolidObjects.h"
 
 #define DEBUG_SWITCH_PHYSICS_TYPE
 
@@ -310,7 +311,7 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 
 	// m_vHeading のベクトルを描画（補助）
 	DrawAllow3D( Pos, Head );
-	DrawLine3D( Pos.toVECTOR(), (Pos+10*Head).toVECTOR(), GetColor( 255, 0, 0 ) );
+	//DrawLine3D( Pos.toVECTOR(), (Pos+10*Head).toVECTOR(), GetColor( 255, 0, 0 ) );
 
 	// アニメーションの物理演算実行
 	UpdateAnimPhysics( TimeElaps );
@@ -435,6 +436,14 @@ void AnimationManager::DrawAllow3D( Vector3D cnt, Vector3D heading )
 	SetUseZBuffer3D( FALSE );
 	SetWriteZBuffer3D( FALSE );
 
+	// 輪っかを描く
+	static PlaneRing RingIns( 
+		5.5, 1.25, 32, 
+		GetColorU8(255,   0,   0, 0 ),
+		GetColorU8(255, 255, 255, 0 ) );
+	RingIns.setCenterPos( cnt );
+	RingIns.Render(); 
+
 	// cntシフト
 	// ポリゴンを描画
 	DrawTriangle3D( 
@@ -458,10 +467,10 @@ void AnimationManager::initAnimPhysics()
 	std::vector<int> FrameIndexList(8);
 
 	// 各種物理パラメータ
-	double M = 1.0;    // 質点の重量（固定）
-	double V = 10.0;    // 粘性抵抗（固定）
-	double G = 250.0;     // 重力定数
-	double S = 1000.0;  // バネ定数（ベース）
+	double M = 0.2;    // 質点の重量（固定）
+	double V = 2.0;    // 粘性抵抗（固定）
+	double G = 400;     // 重力定数
+	double S = 200.0;    // バネ定数（ベース）
 	double N = 0.9;      // 自然長算出する上での補正係数
 
 	// 右髪用インスタンス化
@@ -499,13 +508,17 @@ void AnimationManager::UpdateAnimPhysics( double TimeElaps )
 	if( m_eCurPhysicsType == PHYSICS_SELFMADE )
 	{
 		// 右髪
-		m_pRightHairPhysics->Update( TimeElaps );
-		m_pRightHairRender->setBoneAsJointList( m_pRightHairPhysics->m_vPosList );
+		if(m_pRightHairPhysics->Update( TimeElaps ))
+		{
+			m_pRightHairRender->setBoneAsJointList( m_pRightHairPhysics->m_pPosList );
+		}
 		if( m_bCurBoneExpress ) m_pRightHairPhysics->DebugRender();
 
 		// 左髪
-		m_pLeftHairPhysics->Update( TimeElaps );
-		m_pLeftHairRender->setBoneAsJointList( m_pLeftHairPhysics->m_vPosList );
+		if(m_pLeftHairPhysics->Update( TimeElaps ))
+		{
+			m_pLeftHairRender->setBoneAsJointList( m_pLeftHairPhysics->m_pPosList );
+		}
 		if( m_bCurBoneExpress ) m_pLeftHairPhysics->DebugRender();
 	}
 	else if( m_eCurPhysicsType == PHYSICS_DXLIB )
