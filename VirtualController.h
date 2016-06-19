@@ -11,8 +11,23 @@
 // コントローラー（ジョイパッド）管理クラス
 class VirtualController
 {
+public:
+
+	// 入力デバイスモード（CameraWorkManagerを参考に）
+	enum InputDeviceID
+	{
+		ID_KeyBord = 0, // ←初期値
+		ID_GamePad = 1
+	};
+
+	// 入力デバイス種別
+	InputDeviceID m_eInpuDeviceMode;
+
+	// 入力デバイス判定機能（ゲームパッドが接続されていれば、入力デバイスをゲームパッドにセットする）
+	void CheckAndSetGamePadMode();
+
 private:
-	// コントローラーの描画で使用する情報
+	// ##### コントローラーの描画で使用する情報
 	double controllerscale;
 	double ButtonRad; // ボタンの半径
 	Vector2D ControllerBodyTL;  // コントローラー筐体の左上角の位置
@@ -21,7 +36,15 @@ private:
 	Vector2D ControllerBotB;    // ボタンBの位置（右）
 	Vector2D ControllerBotY;    // ボタンYの位置（左）
 	Vector2D ControllerBotX;    // ボタンXの位置（上）
+
+	// 十字キー関連
+	Vector2D CrossKeyCenter;     // 十字キーの中心
+	double   CrossKeyAreaRadius; // 十字キー領域半径
 	std::vector<Vector2D> CrossKeyOutLine;  // 十字キーの輪郭
+	std::vector<Vector2D> CrossKeyTriangleUp;     // 十字キー上キー矢印
+	std::vector<Vector2D> CrossKeyTriangleDown;   // 十字キー下キー矢印
+	std::vector<Vector2D> CrossKeyTriangleLeft;   // 十字キー左キー矢印
+	std::vector<Vector2D> CrossKeyTriangleRight;  // 十字キー右キー矢印
 
 	int CntBodyColor;  // 本体の色
 	int CrossKeyColor; // 十字キーの色
@@ -36,8 +59,34 @@ private:
 	int LeftPushCnt;
 	int RightPushCnt;
 
-public:
+	// ##### 内部メソッド
+	void UpdateAsKeyBord(); // KeyBordの場合のUpdate
+	void UpdateAsGamePad(); // GamePadの場合のUpdate
 
+	// アナログスティック状態描画のためクラス
+	class RenderStickTrajectory
+	{
+	public:
+		// 軌跡格納
+		std::vector<Vector2D> TrajectoryList; 
+		int CurIndex; // TrajectoryListにおける現在のindex
+		
+		//Point2D CentRender; // 描画中心
+		//int CanvasSize;
+
+		Vector2D m_vCenterPos; // 描画中心
+		double   m_dRadius;
+
+		// コンストラクタ
+		RenderStickTrajectory() : TrajectoryList(5), CurIndex(0) {};
+
+		// 描画
+		void Render( Vector2D CurStickPos, Vector2D RendPos );
+
+	} m_RenderStickL, m_RenderStickR;
+
+public:
+	
 	class Button
 	{
 	public:
@@ -62,13 +111,29 @@ public:
 		};
 	};
 
-	// コントローラーの入力状態を保持する変数
+	// ##### コントローラーの入力状態を保持する変数
+
+	// ロジクールコントローラの生情報
+	XINPUT_STATE m_XinputState;
+	
+	// ボタン類
 	Button ButA;
 	Button ButB;
 	Button ButX;
 	Button ButY;
+
+	Button ButLB; // LB
+	Button ButRB; // RB
+
+	// 十字キー
 	int Virti; // 上、下の方向キーの情報
 	int Horiz; // 右、左の方向キーの情報
+
+	// アナログスティック左（最大値=1.0に規格化、ただし入力が最大値を超えれば、1を超えることもある。）
+	Vector2D m_vStickL;
+
+	// アナログスティック右
+	Vector2D m_vStickR;
 
 	// コンストラクタ
 	VirtualController();
@@ -79,6 +144,8 @@ public:
 	// コントローラーを描画する
 	void Render( Vector2D pos );
 
+	// m_XinputState の状態をデバック出力
+	void DBG_ShowXinputState();
 
 };
 

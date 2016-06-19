@@ -310,7 +310,8 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	// 差分を考慮して、モデル（描画）位置を設定
 
 	// m_vHeading のベクトルを描画（補助）
-	DrawAllow3D( Pos, Head );
+	//DrawAllow3D( Pos, Head );
+	
 	//DrawLine3D( Pos.toVECTOR(), (Pos+10*Head).toVECTOR(), GetColor( 255, 0, 0 ) );
 
 	// アニメーションの物理演算実行
