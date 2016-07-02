@@ -222,3 +222,15 @@ inline Vector3D operator/( const Vector3D &vec , const double scr )
 	tmp /= scr;
 	return tmp;
 };
+
+// 与えられた線分とxz平面の交点を求める
+inline int calcCrossPointWithXZPlane( Vector3D bgn, Vector3D end, Vector3D &rslt )
+{
+	double t = bgn.y / ( bgn.y - end.y );
+	// リターン値を決定
+	rslt = bgn + t*( end - bgn ); 
+	
+	if( t<0 ) return -1;
+	else      return  0;
+	
+};

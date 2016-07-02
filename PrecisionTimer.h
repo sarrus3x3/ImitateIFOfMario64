@@ -54,8 +54,9 @@ inline double PrecisionTimer::TimeElapsed()
 	m_LastTime = m_CurrentTime;
 
 	return m_TimeElapsed;
+	
 	//return 1.0/60.0;
-	//return 0.0001;
+	//return 0.002;
 }
 
   

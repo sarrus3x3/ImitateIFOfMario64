@@ -32,7 +32,7 @@ private:
 
 	double m_dTilt; // 視点の傾き 
 	double m_dHead; // 視点の方向角
-
+	
 	Vector3D m_vFinalCamDist;   // （最終的に設定される）カメラの向く方向ベクトル
 	Vector3D m_vFinalTargetPos; // （最終的に設定される）カメラの注視点
 	Vector3D m_vFinalCamPos;    // （最終的に設定される）カメラの位置
@@ -78,8 +78,24 @@ public:
 	// 現在のカメラモード名を文字列で返却
 	std::string getCurCamModeName(); // CamMode追加要
 
-	// アクセサ
+	// ##### アクセサ類 #####
 	Vector3D getCamPos(){ return m_vFinalCamPos; }; // カメラ位置の取得
 	double   getCamDistFrmFP(){ return m_dCamDistFrmFP; };
+
+	// カメラ位置を球面座標系で設定 
+	// ※ distがうまく動かないので注意！
+	//    getMouseWheelInput の中のstatic変数で決まってしまっている！
+	//    （m_dCamDistFrmFPはwork変数になっている構造を何とかしないと直らない。）
+	void     setCamPosSpherical ( double tilt, double head, double dist )
+	{ 
+		m_dTilt=tilt;
+		m_dHead=head;
+		m_dCamDistFrmFP=dist; 
+	}; 
+
+	// カメラ位置を直交座標系で設定
+	// ※ Updateと併用できないので注意 
+	void     setCamFinalPos ( Vector3D Pos ){ m_vFinalCamPos = Pos; }; 
+
 
 };

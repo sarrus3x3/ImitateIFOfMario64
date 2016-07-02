@@ -611,8 +611,9 @@ void TextureSphere3D::MatTransVertex( const MATRIX &Mat )
 
 GroundGrid::GroundGrid( 
 		double GridRange,	// グリッド範囲
-		int    GridNum 		// グリッド数
-		)
+		int    GridNum,		// グリッド数
+		int    Color		// グリッドの色
+		) : m_iColor( Color )
 {
 	m_dGridRange = GridRange;
 	m_iGridNum = GridNum;
@@ -637,8 +638,8 @@ void GroundGrid::Render()
 {
 	for( int i=0; i<=m_iGridNum; i++ )
 	{
-		DrawLine3D( m_pHorizGrid[i].from.toVECTOR(), m_pHorizGrid[i].to.toVECTOR(), GetColor( 255,255,255 ) );
-		DrawLine3D( m_pVertiGrid[i].from.toVECTOR(), m_pVertiGrid[i].to.toVECTOR(), GetColor( 255,255,255 ) );
+		DrawLine3D( m_pHorizGrid[i].from.toVECTOR(), m_pHorizGrid[i].to.toVECTOR(), m_iColor );
+		DrawLine3D( m_pVertiGrid[i].from.toVECTOR(), m_pVertiGrid[i].to.toVECTOR(), m_iColor );
 	}
 };
 
@@ -807,6 +808,49 @@ void LineRing::Render()
 };
 
 void LineRing::MatTransVertex( const MATRIX &Mat )
+{
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		m_pVECTORs[i] = VTransform( m_pVECTORs[i], Mat );
+	}
+};
+
+
+// ###############################################
+// ########## class LineSegment
+// ###############################################
+
+
+LineSegment::LineSegment(
+		Vector3D bgn,  // 始点
+		Vector3D end,  // 終点
+		unsigned int Color          // 線の色
+		) :
+	m_iColor( Color )
+{
+	// m_pVECTORs, m_pRawVertexPos のメモリを確保
+	m_iVertexNum = 2;
+	m_pVECTORs      = new VECTOR[m_iVertexNum];
+	m_pRawVertexPos = new Vector3D[m_iVertexNum];
+
+	m_pRawVertexPos[0] = bgn;
+	m_pRawVertexPos[1] = end;
+};
+
+void LineSegment::resetVertex()
+{
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		m_pVECTORs[i] = m_pRawVertexPos[i].toVECTOR();
+	}
+}
+
+void LineSegment::Render()
+{
+	DrawLine3D( m_pVECTORs[0], m_pVECTORs[1], m_iColor );
+};
+
+void LineSegment::MatTransVertex( const MATRIX &Mat )
 {
 	for( int i=0; i<m_iVertexNum; i++ )
 	{

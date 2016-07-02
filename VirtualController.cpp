@@ -1,5 +1,8 @@
 #include "VirtualController.h"
 
+const int    VirtualController::iANALOG_STICK_TILT_UP_LIMIT = 32767;        // GetJoypadXInputState で取得するアナログスティックの傾きの最大値
+const double VirtualController::dANALOG_STICK_TILT_IGNORE_THRESHOLD = 0.1; // アナログスティックの傾きが十分に小さくなったときに0とみなす閾値 
+
 // ################## コントローラー描画のための補助関数 #######################
 
 int DrawLine2D( Point2D bgn, Point2D end, unsigned int Color )
@@ -211,7 +214,6 @@ void VirtualController::UpdateAsGamePad()
 	//     十字右:3
 	// ----------------------------------------------------
 
-	static const int     MaxOut = 32767; // input.ThumbLX等の最大値
 
 	// ##### コントローラ状態を更新
 	GetJoypadXInputState( DX_INPUT_PAD1, &m_XinputState ) ;
@@ -262,17 +264,41 @@ void VirtualController::UpdateAsGamePad()
 		if( RightPushCnt==1 ){ Horiz= 1; }
 		if( LeftPushCnt ==1 ){ Horiz=-1; }
 	}
-	else if( m_XinputState.Buttons[2] ){ Horiz= 1; }
-	else if( m_XinputState.Buttons[3] ){ Horiz=-1; }
+	else if( m_XinputState.Buttons[3] ){ Horiz= 1; }
+	else if( m_XinputState.Buttons[2] ){ Horiz=-1; }
 	else{ Horiz = 0; }
 
 	// ##### アナログスティック
-	m_vStickL.x = (double)(m_XinputState.ThumbLX)/(double)MaxOut;
-	m_vStickL.y = (double)(m_XinputState.ThumbLY)/(double)MaxOut;
+	static double  MaxOut = iANALOG_STICK_TILT_UP_LIMIT; // input.ThumbLX等の最大値
 
-	m_vStickR.x = (double)(m_XinputState.ThumbRX)/(double)MaxOut;
-	m_vStickR.y = (double)(m_XinputState.ThumbRY)/(double)MaxOut;
+	// 左
+	m_vStickL.x = (double)(m_XinputState.ThumbLX)/MaxOut;
+	m_vStickL.y = (double)(m_XinputState.ThumbLY)/MaxOut;
 
+	// 右
+	m_vStickR.x = (double)(m_XinputState.ThumbRX)/MaxOut;
+	m_vStickR.y = (double)(m_XinputState.ThumbRY)/MaxOut;
+
+	double lentmp;
+	// 左
+	lentmp = m_vStickL.len();
+	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
+	{
+		m_dTiltQuantStickL = 0.0;
+		m_vStickL.x = 0.0;
+		m_vStickL.y = 0.0;
+	}
+	else m_dTiltQuantStickL = lentmp;
+
+	// 右
+	lentmp = m_vStickR.len();
+	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
+	{
+		m_dTiltQuantStickR = 0.0;
+		m_vStickR.x = 0.0;
+		m_vStickR.y = 0.0;
+	}
+	else m_dTiltQuantStickR = lentmp;
 
 };
 

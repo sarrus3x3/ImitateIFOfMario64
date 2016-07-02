@@ -161,8 +161,8 @@ StraightMultiConnectedSpringModel::StraightMultiConnectedSpringModel(
 // 物理演算実施
 void StraightMultiConnectedSpringModel::UpdateMain(double time_elapsed)
 {
-	UpdateByEuler(time_elapsed);
-	//UpdateByRungeKutta(time_elapsed);
+	//UpdateByEuler(time_elapsed);
+	UpdateByRungeKutta(time_elapsed);
 };
 
 // オイラー法による数値計算

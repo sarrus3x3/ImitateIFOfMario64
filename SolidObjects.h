@@ -142,6 +142,7 @@ private:
 	double m_dGridRange; // グリッド範囲
 	int    m_iGridNum;   // グリッド数
 	// 原点を中心に、x軸、y軸 : [-m_dGridRange, m_dGridRange] の範囲にグリッドを描画する
+	int    m_iColor;     // グリッドの色
 
 	// 直線の構造体
 	struct LINE
@@ -157,7 +158,8 @@ public:
 	// コンストラクタ
 	GroundGrid( 
 		double GridRange,	// グリッド範囲
-		int    GridNum 		// グリッド数
+		int    GridNum,		// グリッド数
+		int    Color		// グリッドの色
 		);
 
 	// 描画
@@ -214,6 +216,38 @@ public:
 		double    Radius,           // 輪の半径
 		int       DivNum,           // 分割数
 		unsigned int Color          // 線の色
+		);
+
+	// m_pVertex を m_pRawVertexPos で初期化
+	void resetVertex();
+
+	// 描画
+	void Render();
+
+	// 与えられた行列 Mat で m_pVertex を変換
+	void MatTransVertex( const MATRIX &Mat );
+
+};
+
+// ############### 線分 ###############
+class LineSegment
+{
+private:
+	int       m_iVertexNum;    // 頂点数
+	VECTOR*   m_pVECTORs;      // 頂点集合を保持
+	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
+	MATERIALPARAM m_Material;         // マテリアルパラメータ
+	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
+
+	unsigned int m_iColor;  // 線の色
+
+public:
+
+	// コンストラクタ
+	LineSegment( 
+		Vector3D bgn,  // 始点
+		Vector3D end,  // 終点
+		unsigned int Color  // 線の色
 		);
 
 	// m_pVertex を m_pRawVertexPos で初期化

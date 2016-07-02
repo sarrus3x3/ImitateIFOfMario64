@@ -69,7 +69,8 @@ void CameraWorkManager::getMouseWheelInput( double timeslice )
 	static double scrlvel = 0; // ë¨ìx
 
 	// m_scroll ÇçXêV
-	m_scroll -= (16.0/100) * (double)(GetMouseWheelRotVol());
+	int val = GetMouseWheelRotVol();
+	m_scroll -= (16.0/100) * (double)(val);
 	if(m_scroll>maxsc) m_scroll=maxsc; // è„å¿
 	if(m_scroll<minsc) m_scroll=minsc; // â∫å¿
 

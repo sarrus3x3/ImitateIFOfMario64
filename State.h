@@ -11,18 +11,18 @@ public:
 	// ステートに入った際に実行される
 	virtual void Enter(PlayerCharacterEntity*)=0;
 
-	// 入力情報等を評価しState更新の判定・実行をする
-	virtual void StateTranceDetect(PlayerCharacterEntity*)=0;
-
-	// EntityのUpdateで実行される
-	// このStateにおいてEntityに働く力を計算する。
-	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& )=0;
-
-	// EntityのRenderで実行される
-	virtual void Render(PlayerCharacterEntity*)=0;
-
 	// ステートから出る際に実行される
 	virtual void Exit(PlayerCharacterEntity*)=0;
+
+	// State遷移に関する処理をする（入力情報等を評価しState更新の判定・実行をする）
+	virtual void StateTranceDetect(PlayerCharacterEntity*)=0;
+
+	// Entityの運動を処理する（このStateにおいてEntityに働く力を計算する）
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& )=0;
+
+	// Entityの描画を処理する
+	virtual void Render(PlayerCharacterEntity*)=0;
+
 
 protected:
 
@@ -152,6 +152,40 @@ public:
 };
 
 
+// #### SurfaceMove ステート ####
+class SurfaceMove : public State
+{
+private:
+	SurfaceMove(){}
+
+	// コピーコンストラクタ、代入演算子を private に
+	SurfaceMove(const SurfaceMove&);
+	SurfaceMove& operator=(const SurfaceMove&);
+
+	// メンバ
+
+public:
+
+	// シングルトン
+	static SurfaceMove* Instance();
+  
+	virtual void Enter(PlayerCharacterEntity* );
+	virtual void StateTranceDetect(PlayerCharacterEntity*);
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
+	virtual void Render(PlayerCharacterEntity*);
+	virtual void Exit(PlayerCharacterEntity* );
+
+
+	// 補助
+	static Vector3D calculateForce( 
+		Vector3D Vel,
+		Vector3D Upper,
+		double DriveForce,
+		double CentripetalForce,
+		double eta );
+
+};
+
 /*
 
 class DraggingViewWindow : public State
@@ -234,3 +268,4 @@ public:
 };
 
 */
+

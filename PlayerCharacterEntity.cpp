@@ -17,6 +17,7 @@ PlayerCharacterEntity::PlayerCharacterEntity(
 			m_vVelocity(vVelocity),
 			m_vHeading(vHeading),
 			m_vSide(vSide),
+			m_vUpper(Vector3D(0,1,0)),
 			m_dMass(dMass),
 			m_dBoundingRadius(dBoundingRadius),
 			m_pCurrentState(NULL),
@@ -30,7 +31,9 @@ PlayerCharacterEntity::PlayerCharacterEntity(
 	m_pAnimMgr = new AnimationManager();
 
 	// 初期ステートを設定
-	ChangeState( Running::Instance() );
+	//ChangeState( Running::Instance() );
+	ChangeState( SurfaceMove::Instance() );
+
 };
 
 void PlayerCharacterEntity::ChangeState( State *pNewState )
@@ -77,12 +80,18 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 	PhysicalQuantityVariation PhyVar;
 	m_pCurrentState->Calculate(this, PhyVar);
 	
-	// 運動方程式に従い、速度・位置を更新
-	SteeringForce = PhyVar.Force;
-	Vector3D acceleration = SteeringForce / m_dMass;
-
-	// 速度を更新
-	m_vVelocity += time_elapsed * acceleration ;
+	// #### 速度を更新
+	if( PhyVar.UseVelVar )
+	{
+		m_vVelocity += time_elapsed * PhyVar.VelVar ;
+	}
+	else
+	{
+		// 運動方程式に従い更新
+		SteeringForce = PhyVar.Force;
+		Vector3D acceleration = SteeringForce / m_dMass;
+		m_vVelocity += time_elapsed * acceleration ;
+	}
 
 	// 旋回運動による速度ベクトルの回転
 	if (m_vVelocity.toVector2D().sqlen() > 0.00000001)
@@ -90,25 +99,35 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 		m_vVelocity += time_elapsed * m_vVelocity.len() * PhyVar.DstVar;
 	}
 
-	// 位置を更新
-	m_vPos += m_vVelocity * time_elapsed;
-
+	// #### 位置を更新
+	if( PhyVar.UsePosVar )
+	{
+		m_vPos += time_elapsed * PhyVar.PosVar ;
+	}
+	else
+	{
+		m_vPos += m_vVelocity * time_elapsed;
+	}
+	
 	// Entityの向きを速度方向から更新
 	if (m_vVelocity.toVector2D().sqlen() > 0.00000001)
 	{
 		Vector2D Head2D = m_vVelocity.toVector2D().normalize();
-		Vector2D Side2D = Head2D.side();
+		//Vector2D Side2D = Head2D.side();
 		m_vHeading = Head2D.toVector3D();
-		m_vSide    = Side2D.toVector3D();
+		//m_vSide    = Side2D.toVector3D();
+		m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
+
 	}
 	else
 	{
 		// 旋回運動による速度ベクトルの回転
 		m_vHeading += time_elapsed * PhyVar.DstVar;
 		m_vHeading = m_vHeading.normalize(); // 再規格化
-		m_vSide = m_vHeading.toVector2D().side().toVector3D();
-	}
+		//m_vSide = m_vHeading.toVector2D().side().toVector3D();
+		m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
 
+	}
 
 };
 
@@ -155,7 +174,8 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 2; 
 	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, -4.75 );
 	pAnimUnq->m_fUniquePlayPitch = (float)(14.0/12.0); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
-	pAnimUnq->m_fAnimInterval = 14.0;
+	pAnimUnq->m_fAnimStartTime   = 4.0f;
+	pAnimUnq->m_fAnimInterval    = 14.0;
 
 	// --------- Running --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Running];
@@ -163,7 +183,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 0; 
 	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, -4.5 );
 	pAnimUnq->m_fAnimStartTime    = 20.0f;
-	pAnimUnq->m_fAnimInterval = 12.0;
+	pAnimUnq->m_fAnimInterval     = 12.0;
 
 	// --------- Jumping --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jumping];

@@ -17,16 +17,22 @@ class VirtualController;
 // #### 物理量の変化を定義する構造体（State::Calculateの結果渡し） ####
 struct PhysicalQuantityVariation
 {
-	Vector3D Force;   // 力（=速度の変位）
+	Vector3D Force;   // 力
+	Vector3D VelVar;  // 速度の変位（単位時間あたり）
 	Vector3D PosVar;  // 位置の変位（単位時間あたり）
 	Vector3D DstVar;  // 方向の変位（単位時間あたり）
+	bool UseVelVar;   // VelVar 使用するflg
+	bool UsePosVar;   // PosVar 使用するflg
 
 	// 初期化メソッド
 	void init()
 	{
 		Force  = Vector3D(0,0,0);
+		VelVar = Vector3D(0,0,0);
 		PosVar = Vector3D(0,0,0);
 		DstVar = Vector3D(0,0,0);
+		UseVelVar = false;
+		UsePosVar = false;
 	};
 };
 
@@ -59,6 +65,7 @@ private:
 	Vector3D m_vVelocity;       // Entityの速度
 	Vector3D m_vHeading;        // Entityの向き
 	Vector3D m_vSide;           // Entityのローカル座標における横軸正方向
+	Vector3D m_vUpper;			// Entityのローカル座標における上方向
 	double   m_dMass;           // Entityの質量
 	double   m_dBoundingRadius; // Entityのバウンディング半径
 
@@ -133,6 +140,7 @@ public:
 	Vector3D Velocity()const{return m_vVelocity;}
 	double   Mass()const{return m_dMass;}
 	Vector3D Side()const{return m_vSide;}
+	Vector3D Uppder()const{return m_vUpper;}
 	double   Speed()const{return m_vVelocity.len();}
 	double   SpeedSq()const{return m_vVelocity.sqlen();}
 	Vector3D Heading()const{return m_vHeading;}
@@ -154,9 +162,10 @@ public:
 	void   StopWatchOn(){ m_dStopWatchCounter=0; }; // ストップウォッチオン
 	double getStopWatchTime(){ return m_dStopWatchCounter; }; // ストップウォッチの測定時間を取得
 
-
 	// #### 暫定 ####
 	bool m_bTouchGroundFlg;  // 接地flg
 	bool m_bJmpChrgUsageFlg; // ジャンプチャージでジャンプ力を調整するIFを使用するFlg
+
+	double DBG_m_dDBG;
 
 };

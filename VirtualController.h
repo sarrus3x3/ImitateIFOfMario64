@@ -12,6 +12,12 @@
 class VirtualController
 {
 public:
+	// ##### コンフィグ値
+	// 初期化は、VirtualController.cpp で
+	static const int    iANALOG_STICK_TILT_UP_LIMIT;           // GetJoypadXInputState で取得するアナログスティックの傾きの最大値
+	static const double dANALOG_STICK_TILT_IGNORE_THRESHOLD;   // アナログスティックの傾きが十分に小さくなったときに0とみなす閾値
+	
+	// ##### 入力デバイスモード
 
 	// 入力デバイスモード（CameraWorkManagerを参考に）
 	enum InputDeviceID
@@ -129,11 +135,14 @@ public:
 	int Virti; // 上、下の方向キーの情報
 	int Horiz; // 右、左の方向キーの情報
 
-	// アナログスティック左（最大値=1.0に規格化、ただし入力が最大値を超えれば、1を超えることもある。）
-	Vector2D m_vStickL;
+	// アナログスティック状態
+	Vector2D m_vStickL; // アナログスティック左
+	Vector2D m_vStickR; // アナログスティック右
+	double m_dTiltQuantStickL; // アナログスティック左の傾き大きさ （Updateで更新、無視閾値適用済み）
+	double m_dTiltQuantStickR; // アナログスティック右の傾き大きさ （同上）
 
-	// アナログスティック右
-	Vector2D m_vStickR;
+	// ＊スティック傾き情報に関する留意事項＊
+	// ・大きさ最大値=1.0に規格化、ただし、m_vStickL.lem()<1 こともある。（入力自体の大きさがリミット32767を超えることがあるため）
 
 	// コンストラクタ
 	VirtualController();
@@ -146,6 +155,5 @@ public:
 
 	// m_XinputState の状態をデバック出力
 	void DBG_ShowXinputState();
-
 };
 
