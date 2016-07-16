@@ -26,7 +26,7 @@
 
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
 
-#define GROUND_MESH_ON  // 地面の方眼模様あり
+//#define GROUND_MESH_ON  // 地面の方眼模様あり
 
 #define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
 
@@ -204,7 +204,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	// ライト設定テスト
 	//SetLightDifColor( GetColorF( 1.0, 1.0, 1.0, 1.0 ) );
-	SetLightDirection( VGet( 1.0, 0, 0 ) );
+	SetLightDirection( VGet( 1.0, -0.5, 0 ) ); // 木星（系）の見え方と、光の当たり方（=太陽の方向）がメチャクチャだけど、まぁ、いいか。
+
+	// 浮遊ダンジョン
+	FloatingDungeon Dungeon( 20.0, 200.0, "mapdef.bmp" );
 
 	// ################## 変数の定義・初期化 #######################
 
@@ -397,6 +400,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		ObjGroundGrid.Render(); // 素晴らしい..
 #endif
 
+		Dungeon.Render();
 
 		// ################## Entityの描画 #######################
 		PCEnti.Render();
@@ -405,6 +409,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		VController.Render( Vector2D(25,25) );
 
 		// ################## デバック情報を出力 #######################
+		/*
 		//行数
 		int colmun= 0;
 		int width = 15;
@@ -435,7 +440,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		DrawFormatString( 0, width*colmun, 0xffffff, "pEntity->SpeedSq():%f",PCEnti.DBG_m_dDBG ); 
 		colmun++;
-
+		*/
 
 
 		/*

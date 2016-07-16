@@ -179,7 +179,7 @@ public:
 	// ################ DxLib.h のインクルード要 ################
 
 	// Vector3D → DxLib::VECTOR 形式に変換
-	VECTOR toVECTOR()
+	VECTOR toVECTOR() const
 	{
 		VECTOR tmp;
 		tmp.x = (float) x;

@@ -163,6 +163,7 @@ private:
 	SurfaceMove& operator=(const SurfaceMove&);
 
 	// メンバ
+	double m_dCentripetalForce; // 向心力の大きさ （遠心力によるバンク演出のために使用）
 
 public:
 
@@ -183,6 +184,12 @@ public:
 		double DriveForce,
 		double CentripetalForce,
 		double eta );
+
+	// #### デバック用 ####
+	Vector3D DBG_m_vStickPos; // （Entity平面上に投影した）スティックの傾きの位置
+
+	Vector2D DBG_m_vEntiPosOnScreen; 
+
 
 };
 

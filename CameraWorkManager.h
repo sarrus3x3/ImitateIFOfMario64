@@ -78,6 +78,10 @@ public:
 	// 現在のカメラモード名を文字列で返却
 	std::string getCurCamModeName(); // CamMode追加要
 
+	// ビュー行列
+	MATRIX m_MViewLocal; // Entityのローカル座標でのビュー行列
+	MATRIX m_MViewWorld; // ワールド座標でのビュー行列
+
 	// ##### アクセサ類 #####
 	Vector3D getCamPos(){ return m_vFinalCamPos; }; // カメラ位置の取得
 	double   getCamDistFrmFP(){ return m_dCamDistFrmFP; };

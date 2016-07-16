@@ -105,7 +105,7 @@ VirtualController::VirtualController() :
 	ButtonRad = controllerscale * 0.5; // ボタンの半径
 
 	// アナログスティック
-	m_RenderStickL.m_dRadius = controllerscale * 1.5; 
+	m_RenderStickL.m_dRadius = 10 * controllerscale * 1.5;  // ★
 	m_RenderStickR.m_dRadius = controllerscale * 1.5; 
 
 	double len = 3.5*0.5*sqrt(2.0);

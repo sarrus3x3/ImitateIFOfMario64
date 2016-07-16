@@ -2,7 +2,7 @@
 
 #include "SolidObjects.h"
 
-// 木星衛星系のジオラマ
+// ##### 木星衛星系のジオラマ #######################################
 class JupiterSystemDiorama
 {
 private:
@@ -95,4 +95,42 @@ public:
 
 	// 一回テストしてみたほうがいいでしょう。
 
+};
+
+// ##### 浮遊するダンジョン #######################################
+// * 動画の背景の1セットとして。（下のダンジョンっぽいものは飾りです。地面から外れても落ちたりはしません）
+// * コンストラクタでマップ定義bitmapを読み込み、ダンジョンの形状を認識する。
+// * 歩き動作のデモ用に"丸太"の橋も設定できるように（拡張機能！）
+
+class FloatingDungeon
+{
+public:
+	// ダンジョンを構成するセル（タイル）の総数
+	int m_iCellNum;
+
+	// ダンジョンのプロパティ
+	double m_dCellSize;      // * セル（タイル）のサイズ（1辺の長さ、タイルは正方形）
+	double m_dCellThickness; // * セル（タイル）の厚み
+
+
+	// ポリゴン関係
+	VERTEX3D* m_pVertex; // ポリゴン集合を保持
+	int m_iPolygonNum;   // ポリゴン数
+	vector<Vector3D> m_RawVertexPosList; // オリジナルの頂点位置情報を保持する
+	vector<Vector3D> m_RawVertexNrmList; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に、法線
+
+
+	// #### メソッド ####
+
+	// コンストラクタ
+	// * セル（タイル）のサイズ（1辺の長さ、タイルは正方形）
+	// * セル（タイル）の厚み
+	// * マップ定義ビットマップのパス（ハンドルではなく、パス）
+	FloatingDungeon( double CellSize, double CellThickness, char *FileName );
+	
+	// m_pVertex を m_pRawVertexPos で初期化
+	void resetVertex();
+
+	// 描画
+	void Render();
 };

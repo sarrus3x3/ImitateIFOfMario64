@@ -6,6 +6,38 @@
 
 static const float ROTATE_SPEED = DX_PI_F/90;  //回転スピード
 
+// 基底ベクトルからローカル座標→ワールド座標変換行列を作成する。
+MATRIX MakeMatrixFromBaseVec( VECTOR ex, VECTOR ey, VECTOR ez, VECTOR sft )
+{
+	// (ex',ey',ez')を（ワールド座標における）ローカル座標の基底セット
+	// o'を（ワールド座標における）ローカル座標の原点とすると、
+	// 以下の条件を満たすMを計算する。（これがローカル座標→ワールド座標変換行列になる）
+	//  M ex = ex'
+	//  M ey = ey'
+	//  M ez = ez'
+	//  M o  = o'
+	
+	MATRIX M=MGetIdent();
+	
+	M.m[0][0] = ex.x;
+	M.m[0][1] = ex.y;
+	M.m[0][2] = ex.z;
+
+	M.m[1][0] = ey.x;
+	M.m[1][1] = ey.y;
+	M.m[1][2] = ey.z;
+
+	M.m[2][0] = ez.x;
+	M.m[2][1] = ez.y;
+	M.m[2][2] = ez.z;
+
+	M.m[3][0] = sft.x;
+	M.m[3][1] = sft.y;
+	M.m[3][2] = sft.z;
+
+	return M;
+};
+
 // コンストラクタ
 CameraWorkManager::CameraWorkManager() :
 	m_CurCamMode(RotateCamOnGazePoint),
@@ -14,7 +46,9 @@ CameraWorkManager::CameraWorkManager() :
 	m_dCamDistFrmFP(100.0),
 	m_dCamHight(30.0),
 	m_dDstCamToTrgtDef(30.0),
-	m_TrgtHight(20.0)
+	m_TrgtHight(20.0),
+	m_MViewLocal( MGetIdent() ),
+	m_MViewWorld( MGetIdent() )
 {
 
 	m_dSqDstCamToTrgtDef = m_dDstCamToTrgtDef * m_dDstCamToTrgtDef;
@@ -159,18 +193,49 @@ void CameraWorkManager::Update_RotateCamOnGazePoint( double timeslice )
 	}
 	
 
-	// m_dHead と m_dTilt から、カメラの位置を計算する
-	Vector2D Hedding2D( 0, 1 );
-	Hedding2D = Hedding2D.rot(m_dHead); // 回転
-	Vector2D toCamPos2D = ( -m_dCamDistFrmFP * cos(m_dTilt) ) * Hedding2D.normalize();
-	Vector3D toCamPos3D( toCamPos2D.x, m_dCamDistFrmFP*sin(m_dTilt), toCamPos2D.y );
-	
-	// カメラ状態を更新
-	m_vFinalCamPos = m_TargetPos.toVector2D().toVector3D() + toCamPos3D;
-	m_vFinalTargetPos = m_TargetPos.toVector2D().toVector3D();
+	// m_dHead と m_dTilt から、（GazingPointを原点とした）カメラの位置を計算する
+	Vector3D Hedding3D( 1.0, 0, 0 );
+	Hedding3D = VTransform( Hedding3D.toVECTOR(), MGetRotZ( (float)m_dTilt ) ); // もしかしたら、マイナスにしないと駄目かも
+	Hedding3D = VTransform( Hedding3D.toVECTOR(), MGetRotY( -1*(float)m_dHead ) );
+	Vector3D toCamPos3D = m_dCamDistFrmFP * Hedding3D ;
 
-	m_vFinalTargetPos.y += m_TrgtHight;
-	m_vFinalCamPos.y    += m_TrgtHight;
+	// ### ビュー行列を生成を確認
+
+	// カメラの座標変換行列のz軸向き（=カメラの向き）
+	Vector3D vViewBaseZ = -1 * Hedding3D; 
+
+	// カメラの座標変換行列のy軸向きを仮置き
+	Vector3D vViewBaseY( 0.0, 1.0, 0.0 );
+
+	// カメラの座標変換行列のx軸向き（= y × z ）
+	Vector3D vViewBaseX = VCross( vViewBaseY.toVECTOR(), vViewBaseZ.toVECTOR() );
+	vViewBaseX = vViewBaseX.normalize();
+
+	// カメラの座標変換行列のy軸向きを再調整
+	vViewBaseY = VCross( vViewBaseZ.toVECTOR(), vViewBaseX.toVECTOR() );
+
+	// 基底を組み合わせてカメラ座標変換行列（Entityローカル座標）を生成
+	MATRIX MCamTransMatLocal = 
+		MGetAxis1(
+		//MakeMatrixFromBaseVec( 
+			vViewBaseX.toVECTOR(),
+			vViewBaseY.toVECTOR(),
+			vViewBaseZ.toVECTOR(),
+			toCamPos3D.toVECTOR() );
+	MCamTransMatLocal.m[3][1] += m_TrgtHight;
+
+	// Entity位置だけシフトしたものがワールド座標でのカメラ座標変換行列
+	MATRIX MCamTransMatWorld = MCamTransMatLocal;
+	MCamTransMatWorld.m[3][0] += m_TargetPos.x;
+	//MCamTransMatWorld.m[3][1] += m_TrgtHight; <- MCamTransMatLocal の段階でシフト
+	MCamTransMatWorld.m[3][2] += m_TargetPos.z;
+
+	// 逆行列がビュー行列
+	m_MViewLocal = MInverse( MCamTransMatLocal );
+	m_MViewWorld = MInverse( MCamTransMatWorld );
+	
+	// 背景パノラマ球の描画に使用しているため
+	m_vFinalCamPos = VTransform( Vector3D( 0,0,0 ).toVECTOR(), MCamTransMatWorld );
 };
 
 void CameraWorkManager::Update_TrackingMovingTarget( double timeslice )
@@ -195,8 +260,13 @@ void CameraWorkManager::Update_TrackingMovingTarget( double timeslice )
 
 void CameraWorkManager::setCamera()
 {
+	/*
 	// DXlibでカメラの位置を設定
 	SetCameraPositionAndTarget_UpVecY( m_vFinalCamPos.toVECTOR(), m_vFinalTargetPos.toVECTOR() );
+	*/
+
+	// ビュー行列設定
+	SetCameraViewMatrix( m_MViewWorld );
 };
 
 std::string CameraWorkManager::getCurCamModeName()

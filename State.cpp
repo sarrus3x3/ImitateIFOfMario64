@@ -1,6 +1,10 @@
 #include "State.h"
 #include "AnimationManager.h"
 #include "VirtualController.h"
+#include "MyUtilities.h"
+#include "SolidObjects.h"
+#include "CameraWorkManager.h"
+
 #include <cassert>
 
 //static const double EPS = 1e-5;
@@ -656,17 +660,25 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	static const double ViscousRsisInert = 10.0;  // 慣性推進時の粘性抵抗係数
 	static const double ViscousRsisAccel = 80.0;  // 加速時の粘性抵抗係数
 	
-	static const double MaxCentripetalForce =1000.0;   // 旋回時の最大向心力
+	static const double MaxCentripetalForce =500.0*10;   // 旋回時の最大向心力
 	static const double sqMaxCentripetalForce = MaxCentripetalForce*MaxCentripetalForce;
+
+	static const double SensitivityCoefForTurning = 10; // 旋回時の入力に対する反応の良さ。
 
 	PhyVar.init(); // 初期化
 
 	// 16:45
 	// ##### スティックの傾きの方向から、Entityに働く操舵力の方向を計算する
+	// ・ワールド座標を使うことによる精度劣化を防ぐため、計算をEntityのローカル座標で行うように修正
 	
+	/*
 	// スクリーン上のEntity位置を計算
 	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( pEntity->Pos().toVECTOR() );
 	assert( EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0 );
+
+	// デバック
+	DBG_m_vEntiPosOnScreen.x = EntiPosForScreen.x;
+	DBG_m_vEntiPosOnScreen.y = EntiPosForScreen.y;
 
 	// スクリーン上にスティックの傾き方向の位置を求める
 	Vector3D vStickTile( 0,0,0);
@@ -689,10 +701,58 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	{ // カメラの向きの反対側で地平面と交わる場合
 		vSteeringForceDir *= -1; // 反対向きに設定
 	}
-	
+
+	*/
+
+	// 現在のカメラのビュー行列を退避（Entityの進行指示方向を求める計算で、ビュー行列をEntityのローカル座標でのものに設定するため）
+	MATRIX MSaveViewMat = GetCameraViewMatrix();
+
+	// カメラのビュー行列をEntityのローカル座標でのものに設定
+	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
+
+	static const Vector3D vPosOrign = Vector3D( 0,0,0 );
+
+	// スクリーン上のEntity位置を計算
+	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( vPosOrign.toVECTOR() );
+	assert( EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0 );
+
+	// デバック
+	DBG_m_vEntiPosOnScreen.x = EntiPosForScreen.x;
+	DBG_m_vEntiPosOnScreen.y = EntiPosForScreen.y;
+
+	// スクリーン上にスティックの傾き方向の位置を求める
+	Vector3D vStickTile = vPosOrign;
+	vStickTile.x = pEntity->m_pVirCntrl->m_vStickL.x;
+	vStickTile.y = -pEntity->m_pVirCntrl->m_vStickL.y;
+	Vector3D StickTiltPosForScreen = EntiPosForScreen + vStickTile;
+
+	// スティックの傾き方向の位置Entityの地平面に投影するした位置を求める
+	StickTiltPosForScreen.z = 0.0;
+	Vector3D BgnPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
+	StickTiltPosForScreen.z = 1.0;
+	Vector3D EndPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
+	Vector3D vCrossPos;
+	int rtn = calcCrossPointWithXZPlane( BgnPos, EndPos, vCrossPos ); // これは、厳密にはキャラクタ水平面ではないので、ジャンプすると不正確。修正が必要★
+	vCrossPos.y = 0; // 安易な対処法
+
+	// 操舵力の決定
+	Vector3D vSteeringForceDir = ( vCrossPos ).normalize();
+	if( rtn < 0 )
+	{ // カメラの向きの反対側で地平面と交わる場合
+		vSteeringForceDir *= -1; // 反対向きに設定
+	}
+
+	// カメラのビュー行列を元に戻す
+	SetCameraViewMatrix( MSaveViewMat );
+
+
 	// 大きさはオリジナルのスティックの傾きを使用
 	Vector3D vStickTiltFromCam = pEntity->m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
 	//Vector3D vStickTiltFromCam = vSteeringForceDir;
+
+	// デバック用に記憶
+	DBG_m_vStickPos = 10 * vStickTiltFromCam + pEntity->Pos();
+
 	// ★ For DBG
 
 	// 17:16 Coding完
@@ -722,74 +782,82 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	
 
 	// ##### 旋回時の挙動改善
-	// 速度が小さ場合は旋回挙動を適用しない
-	if(pEntity->Velocity().len() < 25.0){
+
+	m_dCentripetalForce = 0; // 向心力をクリア
+	
+	if(pEntity->Velocity().len() < 25.0)
+	{ // 速度が小さ場合は旋回挙動を適用しない
 		Vector3D Force = vSteeringForce - eta * (pEntity->Velocity()) ;
 		PhyVar.Force = Force ;
 
 		assert( PhyVar.Force.y==0 );
 
-		return ;
 	}
-
-	// ルンゲクッタ法（一部）適用
-	// 旋回運動が不安定なのを解消したいだけなので、
-	// DriveForce, CentripetalForce 大きさはこのステップで固定
-	double DriveForce = vSteeringForce.len();
-	Vector3D vDriveForce = DriveForce * pEntity->Heading();
-	
-	double CentripetalForce = (vSteeringForce - vDriveForce) * (pEntity->Side());
-	if( fabs(CentripetalForce) > MaxCentripetalForce )
+	else
 	{
-		double sgn =  (double)( (CentripetalForce>0) - (CentripetalForce<0) );
-		CentripetalForce = sgn * MaxCentripetalForce;
-	}
-	//CentripetalForce = MaxCentripetalForce; //★DBG
+		// 向心力の決定
+		double DriveForce = vSteeringForce.len();
+		Vector3D vDriveForce = DriveForce * pEntity->Heading();
 	
-	CentripetalForce *= 10;
+		double CentripetalForce = (SensitivityCoefForTurning * vSteeringForce) * (pEntity->Side());
+		if( fabs(CentripetalForce) > MaxCentripetalForce )
+		{
+			double sgn =  (double)( (CentripetalForce>0) - (CentripetalForce<0) );
+			CentripetalForce = sgn * MaxCentripetalForce;
+		}
+		//CentripetalForce = MaxCentripetalForce; //★DBG
 
+		m_dCentripetalForce = CentripetalForce; // 向心力を記憶
+	
 
-	Vector3D vK, vL;
-	Vector3D vSumK, vSumL;
-	Vector3D vVel = pEntity->Velocity(), vNxtVel;
-	Vector3D vUpper = pEntity->Uppder();
+		// 次のタイムステップの速度・位置を計算
+		// * ルンゲクッタ法適用
+		// * 旋回運動が不安定なのを解消したいだけなので、
+		//   DriveForce, CentripetalForce はこのステップで固定
 
-	// K1の計算
-	vL = calculateForce( vVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
-	vK = vVel;
-	vSumK = vK;
-	vSumL = vL;
+		Vector3D vK, vL;
+		Vector3D vSumK, vSumL;
+		Vector3D vVel = pEntity->Velocity(), vNxtVel;
+		Vector3D vUpper = pEntity->Uppder();
 
-	// K2の計算
-	vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-	vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
-	vK = vNxtVel;
-	vSumK += 2*vK;
-	vSumL += 2*vL;
+		// K1の計算
+		vL = calculateForce( vVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vK = vVel;
+		vSumK = vK;
+		vSumL = vL;
 
-	// K3の計算
-	vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-	vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
-	vK = vNxtVel;
-	vSumK += 2*vK;
-	vSumL += 2*vL;
+		// K2の計算
+		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
+		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vK = vNxtVel;
+		vSumK += 2*vK;
+		vSumL += 2*vL;
 
-	// K4の計算
-	vNxtVel = vVel+pEntity->TimeElaps()*vL;
-	vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
-	vK = vNxtVel;
-	vSumK += vK;
-	vSumL += vL;
+		// K3の計算
+		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
+		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vK = vNxtVel;
+		vSumK += 2*vK;
+		vSumL += 2*vL;
 
-	// 次のステップの位置・速度（変位）を求める
-	PhyVar.VelVar = (1.0/6.0) * vSumL;
-	PhyVar.PosVar = (1.0/6.0) * vSumK;
+		// K4の計算
+		vNxtVel = vVel+pEntity->TimeElaps()*vL;
+		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vK = vNxtVel;
+		vSumK += vK;
+		vSumL += vL;
 
-	// それ用の計算をしてもらうためにフラグを立てる
-	PhyVar.UseVelVar = true;
-	PhyVar.UsePosVar = true;
+		// 次のステップの位置・速度（変位）を求める
+		PhyVar.VelVar = (1.0/6.0) * vSumL;
+		PhyVar.PosVar = (1.0/6.0) * vSumK;
 
-	assert( PhyVar.VelVar.y==0 );
+		// それ用の計算をしてもらうためにフラグを立てる
+		PhyVar.UseVelVar = true;
+		PhyVar.UsePosVar = true;
+
+		assert( PhyVar.VelVar.y==0 );
+
+	}
 
 	return;
 }
@@ -815,8 +883,20 @@ Vector3D SurfaceMove::calculateForce(
 
 void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 {
+	static const double LikeGravity = 500.0 * 10 * 5; // バンク角の計算に使用。重力に相当する。
+	//static const double LikeGravity = 500.0 * 10 * 1; // バンク角の計算に使用。重力に相当する。
+
 	// Animationに速度に応じた再生ピッチをセットする
 	double speed = pEntity->Speed();
+
+	// 遠心力にバンク演出
+	static Smoother<double> BankAngleSmoother( 6, 0 );  // 円滑化
+	double bankangle = atan2( m_dCentripetalForce, LikeGravity ); // *重力と遠心力によりバンク角の計算
+	pEntity->m_pAnimMgr->setBankAngle( BankAngleSmoother.Update(-bankangle) );
+	/*
+	double bankangle = atan2( m_dCentripetalForce, LikeGravity ); // *重力と遠心力によりバンク角の計算
+	pEntity->m_pAnimMgr->setBankAngle( -bankangle );
+	*/
 
 	// Running と Warking で再生ピッチがわける（地面の歩き方が自然になるよう）
 	if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvRunning )		
@@ -827,9 +907,43 @@ void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 	{
 		pEntity->m_pAnimMgr->setPitch((float)((14.0/12.0)*speed)); // ハードコーディングはマズイのだ
 	}
+
+	// デバック用
+	// （Entity平面上に投影した）スティックの傾きの位置を描画
+	static PlaneRing RingIns( 
+		0.6, 0.4, 16, 
+		GetColorU8(255,   0,   0, 0 ),
+		GetColorU8(255, 255, 255, 0 ) );
+	RingIns.setCenterPos( DBG_m_vStickPos );
+	RingIns.Render(); 
+
+	// スクリーン上のEntity位置を描画
+	DrawCircle( (int)DBG_m_vEntiPosOnScreen.x, (int)DBG_m_vEntiPosOnScreen.y, 5, GetColor(0,255,0) );
+
+	// 向心力出力
+	//行数
+	int colmun= 0;
+	int width = 15;
+
+	// Entityの速度を表示
+	DrawFormatString( 0, width*colmun, 0xffffff, "m_dCentripetalForce:%8f", m_dCentripetalForce ); 
+	colmun++;
+
+	DrawFormatString( 0, width*colmun, 0xffffff, "EntiPosOnScreen:%8f, %8f", DBG_m_vEntiPosOnScreen.x, DBG_m_vEntiPosOnScreen.y ); 
+	colmun++;
+
+	// スティックの傾き情報出力
+	Vector2D vStickTile;
+	vStickTile.x = pEntity->m_pVirCntrl->m_vStickL.x;
+	vStickTile.y = -pEntity->m_pVirCntrl->m_vStickL.y;
+	DrawFormatString( 0, width*colmun, 0xffffff, "EntiPosOnScreen:%8f, %8f", vStickTile.x, vStickTile.y ); 
+	colmun++;
+
+
 };
 
 void SurfaceMove::Exit( PlayerCharacterEntity* pEntity )
 {
-	;
+	// 遠心力による姿勢の傾きの解除
+	pEntity->m_pAnimMgr->setBankAngle( 0.0 );
 }

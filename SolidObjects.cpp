@@ -309,7 +309,14 @@ ParallelBox3D::ParallelBox3D(
 
 void ParallelBox3D::Render()
 {
-	DrawPolygon3D( m_pVertex, m_PolygonNum, m_iTexturesHandle, FALSE ) ;
+	if( m_iTexturesHandle<0 )
+	{
+		DrawPolygon3D( m_pVertex, m_PolygonNum, DX_NONE_GRAPH , FALSE ) ;
+	}
+	else
+	{
+		DrawPolygon3D( m_pVertex, m_PolygonNum, m_iTexturesHandle, FALSE ) ;
+	}
 };
 
 // ###############################################

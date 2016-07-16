@@ -142,6 +142,10 @@ private:
 	// アニメーション予約機能に関する
 	queue<ArgumentOfSetAnim> m_qAnimReservationQueue;
 
+	// 姿勢の傾き（旋回動作時に遠心力で体が傾く演出に使用）
+	// 正負で傾きが右側か、左側かを示す。
+	double m_dBankAngle;
+
 	// #### 補助メソッド ####
 	void PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Head, AnimPlayBackInfo* pPlayAnim ); // Entity情報を参照させないで直接条件を指定してAnimationを描画する。
 	void CleanUpAnim( AnimPlayBackInfo* pAnimInfo ); // アニメーションの後処理を行う
@@ -160,7 +164,11 @@ public:
 	
 	// #### メソッド ####
 	void Play( PlayerCharacterEntity* );   // アニメーションの再生実行
+	
 	void setPitch( float playpitch ){ m_PlayPitch = playpitch; }; // アニメーションの再生ピッチのセット
+
+	void setBankAngle( double bankangle ){ m_dBankAngle = bankangle; }; // バンク角の設定
+
 	//void setAnimPlayTime( float playtime ){ m_pCurAnimPlayInfo->m_CurPlayTime = playtime; }; // アニメーションを任意の再生時間に設定
 
 	// ----- アニメーションのセット（各Entity Classで定義されるアニメーション固有enumを指定）

@@ -10,6 +10,7 @@ int AnimationManager::m_iModelHandleMaster = -1; // m_iModelHandle ‚Ì‰Šú‰»Bi
 // #### ƒRƒ“ƒXƒgƒ‰ƒNƒ^ ####
 AnimationManager::AnimationManager() :
 	m_PlayPitch(20.0),
+	m_dBankAngle( 0.0 ),
 	m_bIsNowBlending( false ),
 	m_dBlendElapsed( 0 ),
 	m_dAnimSwitchTime( 0 ),
@@ -272,48 +273,57 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	if( !m_pPrvAnimPlayInfo->m_bRemoved ) PlayOneAnim( TimeElaps, Pos, Head, m_pPrvAnimPlayInfo );
 	
 
-
-	// Œü‚«‚ÌÝ’è
-	// m_vHeading ‚ðx-z•½–Ê‚É“Š‰e‚µ‚½•ûŒü‚ÖyŽ²‚ð’†S‚Éƒ‚ƒfƒ‹‚ð‰ñ“]‚³‚¹‚é
-	Vector2D head2D = Head.toVector2D();               // heading‚ð2D•ÏŠ·
-	double headangle = atan2( head2D.x, head2D.y );    // heading‚Ì‰ñ“]Šp‚ðŽæ“¾
-	Vector3D RotVec( 0, headangle+DX_PI, 0 );
-	MV1SetRotationXYZ( m_iModelHandle, RotVec.toVECTOR() ); // ‰ñ“]Šp + shift —Ê ƒ‚ƒfƒ‹‚ð‰ñ“]‚³‚¹‚é
-	
-
 	// ƒ‚ƒfƒ‹ƒZƒ“ƒ^‚Ö‚Ìƒ‚[ƒVƒ‡ƒ“ˆÊ’u‚Ì•â³ƒxƒNƒgƒ‹‚ðA
 	// PlayOneAnim‚ÅŒvŽZ‚³‚ê‚½AnimPlayBackInfo.m_vCorrectionVec‚©‚çŒvŽZ
 	
-	// ƒZƒ“ƒ^[ˆÊ’u‚ªŒÅ’è‚É‚È‚é‚æ‚¤‚ÉAƒ‚ƒfƒ‹i•`‰æjˆÊ’u‚ð•â³‚·‚éƒxƒNƒgƒ‹ CorrectionVec ‚ðŒvŽZ‚·‚é
+	// #### ƒZƒ“ƒ^[ˆÊ’u‚ªŒÅ’è‚É‚È‚é‚æ‚¤‚ÉAƒ‚ƒfƒ‹i•`‰æjˆÊ’u‚ð•â³‚·‚éƒxƒNƒgƒ‹ CorrectionVec ‚ðŒvŽZ‚·‚é
 	
-	// Cur‘¤‚Ì•â³î•ñŽæ“¾
+	// Cur‘¤‚ÌˆÊ’u•â³î•ñŽæ“¾
 	Vector3D CurCorrectVec = m_pCurAnimPlayInfo->m_vCorrectionVec;
-	CurCorrectVec += m_pCurAnimPlayInfo->getAnimUnqPointer()->m_vPosShift;
 	float    CurBlendRate  = m_pCurAnimPlayInfo->m_fBlendRate;
 	
-	// Prv‘¤‚Ì•â³î•ñŽæ“¾
+	// Prv‘¤‚ÌˆÊ’u•â³î•ñŽæ“¾
 	Vector3D PrvCorrectVec = m_pPrvAnimPlayInfo->m_vCorrectionVec;
-	PrvCorrectVec += m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_vPosShift;
 	float    PrvBlendRate  = m_pPrvAnimPlayInfo->m_fBlendRate;
 	if( m_pPrvAnimPlayInfo->m_bRemoved ) PrvBlendRate = 0;
 	
-	// ƒuƒŒƒ“ƒhl—¶‚µ‚½•â³ƒxƒNƒgƒ‹‚ðŒvŽZ
+	// ƒuƒŒƒ“ƒhl—¶‚µ‚½ÅIˆÊ’u•â³ƒxƒNƒgƒ‹‚ðŒvŽZ
 	Vector3D CorrectionVec = ( CurBlendRate*CurCorrectVec + PrvBlendRate*PrvCorrectVec ) / (CurBlendRate+PrvBlendRate);
 
-	// Entity‚ÌˆÊ’u‚Éƒ‚ƒfƒ‹‚ð”z’u
-	Vector2D PosShiftRot2D = CorrectionVec.toVector2D().rot( -headangle ); // ƒ‚ƒfƒ‹‚Ì‰ñ“]‚ÍƒVƒtƒg‘O‚ÌˆÊ’u‚ðŽ²‚És‚í‚ê‚é‚½‚ßAƒVƒtƒgƒxƒNƒgƒ‹‚Ì‰ñ“]‚ðl—¶‚µ‚È‚¢‚Æ‚¢‚¯‚È‚¢
-	Vector3D PosShiftFinally( PosShiftRot2D.x, CorrectionVec.y, PosShiftRot2D.y );
-	Vector3D ModPos = Pos + PosShiftFinally; // Motion‚Ì•\Ž¦ˆÊ’u‚ðEntity‚ÌˆÊ’u‚©‚çƒVƒtƒg
-	MV1SetPosition( m_iModelHandle, ModPos.toVECTOR() );
-	
+	// #### ˆÊ’u•â³‚ðƒZƒ“ƒ^[ƒtƒŒ[ƒ€‚ÌÀ•W•ÏŠ·s—ñ‚É”½‰f
+
+	// ˆÊ’u•â³—p‚ÌÀ•W•ÏŠ·s—ñ‚ð¶¬
+	MATRIX TransMac = MGetIdent();
+	TransMac.m[3][0] = -1*(float)CorrectionVec.x;
+	TransMac.m[3][1] = (float)CorrectionVec.y;
+	TransMac.m[3][2] = -1*(float)CorrectionVec.z;
+
+	// Žp¨ŒX‚«‚ÌÝ’è
+	TransMac = MMult( TransMac, MGetRotZ( (float)m_dBankAngle ) ); // ¦ ƒ‚ƒfƒ‹‚ÍƒfƒtƒHƒ‹ƒg‚Å‚ÍzŽ²•‰•ûŒü‚ðŒü‚¢‚Ä‚¢‚é
+
+	// Entity‚ÌŒü‚«Ý’è—p‚ÌÀ•W•ÏŠ·s—ñ‚ð¶¬
+	// «–{“–‚ÍAheadAsideAuppper‚ÌŠî’ê‚©‚çŒü‚«Ý’ès—ñ‚ðŒvŽZ‚µ‚½‚¢B
+	//   Šî’ê‚Ì‡˜‚âAƒfƒtƒHƒ‹ƒg‚ÌEntity‚ÌŒü‚«‚ðl—¶‚µ‚È‚¢‚Æ‚¢‚¯‚È‚¢‚Ì‚ÅA‚Æ‚è‚ ‚¦‚¸•Û—¯
+	Vector2D head2D = Head.toVector2D();               // heading‚ð2D•ÏŠ·
+	double headangle = atan2( head2D.x, head2D.y );    // heading‚Ì‰ñ“]Šp‚ðŽæ“¾
+	TransMac = MMult( TransMac, MGetRotY( headangle+DX_PI ) );
+
+	// Entity‚ÌˆÊ’uÝ’è—p‚ÌÀ•W•ÏŠ·s—ñ‚ð¶¬
+	MATRIX SiftM = MGetIdent();
+	SiftM.m[3][0] = (float)Pos.x;
+	SiftM.m[3][1] = (float)Pos.y;
+	SiftM.m[3][2] = (float)Pos.z;
+	TransMac = MMult( TransMac, SiftM );
+
+	// À•W•ÏŠ·s—ñ‚ðƒ‚ƒfƒ‹‚É“K—p
+	MV1SetMatrix( m_iModelHandle, TransMac );
+
 	//MV1SetPosition( m_iModelHandle, Pos.toVECTOR() );
 	// ·•ª‚ðl—¶‚µ‚ÄAƒ‚ƒfƒ‹i•`‰æjˆÊ’u‚ðÝ’è
 
 	// m_vHeading ‚ÌƒxƒNƒgƒ‹‚ð•`‰æi•â•j
 	//DrawAllow3D( Pos, Head );
 	
-	//DrawLine3D( Pos.toVECTOR(), (Pos+10*Head).toVECTOR(), GetColor( 255, 0, 0 ) );
-
 	// ƒAƒjƒ[ƒVƒ‡ƒ“‚Ì•¨—‰‰ŽZŽÀs
 	UpdateAnimPhysics( TimeElaps );
 
@@ -378,6 +388,8 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 		MV1SetAttachAnimTime( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_CurPlayTime ) ;
 	}
 
+	// ##### ƒAƒjƒ[ƒVƒ‡ƒ“ŒÅ—L‚ÌƒAƒjƒ[ƒVƒ‡ƒ“§Œä
+	
 	// ƒZƒ“ƒ^[ˆÊ’u‚ªŒÅ’è‚É‚È‚é‚æ‚¤‚ÉAƒ‚ƒfƒ‹i•`‰æjˆÊ’u‚ð•â³‚·‚éƒxƒNƒgƒ‹ CorrectionVec ‚ðŒvŽZ‚·‚é
 	Vector3D CorrectionVec( 0, 0, 0 );
 	if( pAnimUnq->m_bCorrectionToCenter )
@@ -387,9 +399,12 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 		CorrectionVec = DesiredCntPos - CurFrmPos; // ƒZƒ“ƒ^[ƒtƒŒ[ƒ€‚ÌˆÊ’u‚Æ–]‚ÞƒZƒ“ƒ^[ˆÊ’u‚Æ‚Ì·•ª‚ðŒvŽZ
 	}
 
+	// ƒAƒjƒ[ƒVƒ‡ƒ“ŒÅ—LˆÊ’u•â³‚ð‰ÁŽZ
+	CorrectionVec += pPlayAnim->getAnimUnqPointer()->m_vPosShift;
+
 	// ŒvŽZ‚µ‚½ CorrectionVec ‚ð•Ô‹p
 	pPlayAnim->m_vCorrectionVec = CorrectionVec; 
-
+	
 };
 
 void AnimationManager::ReserveAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim )

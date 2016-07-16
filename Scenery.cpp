@@ -1,5 +1,8 @@
 #include "Scenery.h"
 
+
+// ##### 木星衛星系のジオラマ #######################################
+
 // コンストラクタ（パチパチとデータを入力していく）
 JupiterSystemDiorama::JupiterSystemDiorama() :
 	m_mLocalToWorldMatrix( MGetIdent() ), // マトリクスの初期化
@@ -230,3 +233,208 @@ void JupiterSystemDiorama::Render()
 	}
 	
 };
+
+// ##### 浮遊するダンジョン #######################################
+
+// コンストラクタ
+FloatingDungeon::FloatingDungeon( double CellSize, double CellThickness, char *FileName ) : 
+	m_dCellSize( CellSize ), 
+	m_dCellThickness( CellThickness )
+{
+	// ポリゴン情報（vectorで定義）
+	// メモリはどのように確保するか？
+	
+	// マップ情報定義ビットマップを読み込む
+	int BitMapHandle = LoadSoftImage( FileName );
+
+	// マップ情報定義ビットマップのサイズを取得（縦横）
+	int W, H;
+	GetSoftImageSize( BitMapHandle, &W, &H ) ;
+
+	int TotalHorizSidesNum = W*(H+1);  // タイルの辺で水平なものの総数
+	int TotalSidesNum = TotalHorizSidesNum + H*(W+1); // タイルの辺の総数
+
+	// タイルの重なる辺を除去するため辺のリストを生成
+	// 面の向きを持たせる必要がある
+	vector<int> SidesList( TotalSidesNum, 0 );
+
+	// マップ情報定義ビットマップを解析。
+	int  r, g, b, a ;
+	for( int i=0; i<W; i++)
+	{
+		for( int j=0; j<H; j++)
+		{
+			GetPixelSoftImage( BitMapHandle, j, i, &r, &g, &b, &a ) ;
+
+			// r==0 でなければ、cell有りと判断
+			if( r==0 )
+			{
+				// 面のポリゴンを生成
+				Vector3D TL, BL, TR, BR, Nrm;
+
+				// ４頂点を定義
+				TR= Vector3D( m_dCellSize*(i+1), 0, m_dCellSize*(j+1) );
+				TL= Vector3D( m_dCellSize*(i  ), 0, m_dCellSize*(j+1) );
+				BR= Vector3D( m_dCellSize*(i+1), 0, m_dCellSize*(j  ) );
+				BL= Vector3D( m_dCellSize*(i  ), 0, m_dCellSize*(j  ) );
+
+				// 法線ベクトルを定義
+				Nrm = Vector3D( 0, 1, 0 );
+
+				// ##### m_pRawVertexPos
+				// 三角形１
+				m_RawVertexPosList.push_back( TL );
+				m_RawVertexPosList.push_back( TR );
+				m_RawVertexPosList.push_back( BL );
+
+				// 三角形２
+				m_RawVertexPosList.push_back( TR );
+				m_RawVertexPosList.push_back( BL );
+				m_RawVertexPosList.push_back( BR );
+
+				// ##### m_pRawVertexNrm
+				// 三角形１
+				m_RawVertexNrmList.push_back( Nrm );
+				m_RawVertexNrmList.push_back( Nrm );
+				m_RawVertexNrmList.push_back( Nrm );
+
+				// 三角形２
+				m_RawVertexNrmList.push_back( Nrm );
+				m_RawVertexNrmList.push_back( Nrm );
+				m_RawVertexNrmList.push_back( Nrm );
+
+				// ##### SideList に辺の格納　＆　重なる辺を除去
+
+				// タイルの４辺のエンコード
+				int T = W*j     + i;
+				int B = W*(j+1) + i;
+				int L = H*i     + j + TotalHorizSidesNum;
+				int R = H*(i+1) + j + TotalHorizSidesNum;
+				
+				// 排他的論理和をとることで重複する辺を除去する。
+				// 辺の向きも同時に格納する
+				SidesList[T] =  1 * (int)(SidesList[T]==0);
+				SidesList[B] = -1 * (int)(SidesList[B]==0);
+				SidesList[L] =  1 * (int)(SidesList[L]==0);
+				SidesList[R] = -1 * (int)(SidesList[R]==0);
+
+			}
+		}
+	}
+
+	// 辺のポリゴンを生成
+	for( int i=0; i<TotalSidesNum; i++ )
+	{
+		if( SidesList[i] != 0 )
+		{ // 辺が存在
+			// インデックスから辺のパラメータをデコードする
+			Vector3D BS, BG, ES, EG, Nrm;
+			if( i < TotalHorizSidesNum )
+			{ // 水平な辺
+				int y = i/W;
+				int x = i%W;
+
+				// 位置 : (x,y) - (x+1,y)
+				// 向き : (0,1) * SidesList[i]
+
+				// ４頂点を定義
+				BS = Vector3D( m_dCellSize* x   ,                 0, m_dCellSize*y );
+				BG = Vector3D( m_dCellSize* x   , -m_dCellThickness, m_dCellSize*y );
+				ES = Vector3D( m_dCellSize*(x+1),                 0, m_dCellSize*y );
+				EG = Vector3D( m_dCellSize*(x+1), -m_dCellThickness, m_dCellSize*y );
+
+				// 法線ベクトルを定義
+				Nrm = Vector3D( 0, 0, 1 );
+				Nrm *= SidesList[i];
+			}
+			else
+			{ // 垂直な辺
+				int k = i - TotalHorizSidesNum;
+				int x = k/H;
+				int y = k%H;
+
+				// 位置 : (x,y) - (x,y+1)
+				// 向き : (1,0) * SidesList[i]
+
+				// ４頂点を定義
+				BS = Vector3D( m_dCellSize* x   ,                 0, m_dCellSize* y    );
+				BG = Vector3D( m_dCellSize* x   , -m_dCellThickness, m_dCellSize* y    );
+				ES = Vector3D( m_dCellSize* x   ,                 0, m_dCellSize*(y+1) );
+				EG = Vector3D( m_dCellSize* x   , -m_dCellThickness, m_dCellSize*(y+1) );
+
+				// 法線ベクトルを定義
+				Nrm = Vector3D( 1, 0, 0 );
+				Nrm *= SidesList[i];
+
+			}
+
+			// 辺のポリゴンを生成
+
+			// ##### m_pRawVertexPos
+			// 三角形１
+			m_RawVertexPosList.push_back( BS );
+			m_RawVertexPosList.push_back( ES );
+			m_RawVertexPosList.push_back( BG );
+
+			// 三角形２
+			m_RawVertexPosList.push_back( ES );
+			m_RawVertexPosList.push_back( BG );
+			m_RawVertexPosList.push_back( EG );
+
+			// ##### m_pRawVertexNrm
+			// 三角形１
+			m_RawVertexNrmList.push_back( Nrm );
+			m_RawVertexNrmList.push_back( Nrm );
+			m_RawVertexNrmList.push_back( Nrm );
+
+			// 三角形２
+			m_RawVertexNrmList.push_back( Nrm );
+			m_RawVertexNrmList.push_back( Nrm );
+			m_RawVertexNrmList.push_back( Nrm );
+
+		}
+	}
+	
+	// マップ情報定義ビットマップの情報を破棄
+	DeleteSoftImage( BitMapHandle );
+
+	// m_pVertex の生成
+	int VectexNum = m_RawVertexPosList.size();
+	m_iPolygonNum = VectexNum/3;
+	m_pVertex       = new VERTEX3D[VectexNum];
+
+	// color と使わない要素を代入する
+	COLOR_U8 DifColor = GetColorU8( 255, 255, 255, 0 );
+	COLOR_U8 SpcColor = GetColorU8( 255, 255, 255, 0 );
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].dif = DifColor;
+		m_pVertex[i].spc = SpcColor;
+		m_pVertex[i].su  = 0.0f;
+		m_pVertex[i].sv  = 0.0f;
+	}
+
+	resetVertex();
+
+
+};
+
+void FloatingDungeon::resetVertex()
+{
+	int VectexNum = m_iPolygonNum * 3;
+
+	// m_pVertex.pos を m_pRawVertexPos で上書き
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].pos  = m_RawVertexPosList[i].toVECTOR();
+		m_pVertex[i].norm = m_RawVertexNrmList[i].toVECTOR();
+	}
+};
+
+// 描画
+void FloatingDungeon::Render()
+{
+	DrawPolygon3D( m_pVertex, m_iPolygonNum, DX_NONE_GRAPH , FALSE ) ;
+};
+
+
