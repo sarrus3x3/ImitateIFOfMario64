@@ -25,15 +25,7 @@ public:
 
 
 protected:
-
-	// #### Calculate のサブメソッド ####
 	
-	// 旋回
-	void Rotate( 
-		double RotateVelSpeed, 
-		PlayerCharacterEntity* pEntity, 
-		PhysicalQuantityVariation& PhyVar );
-
 };
 
 // #### ダミーステート（デバッグ用に使用） ####
@@ -71,37 +63,10 @@ private:
 	Standing(const Standing&);
 	Standing& operator=(const Standing&);
 
-	// メンバ
-
 public:
 
 	// シングルトン
 	static Standing* Instance();
-  
-	virtual void Enter(PlayerCharacterEntity* );
-	virtual void StateTranceDetect(PlayerCharacterEntity*);
-	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
-	virtual void Render(PlayerCharacterEntity*);
-	virtual void Exit(PlayerCharacterEntity* );
-
-};
-
-// #### Running ステート ####
-class Running : public State
-{
-private:
-	Running(){}
-
-	// コピーコンストラクタ、代入演算子を private に
-	Running(const Running&);
-	Running& operator=(const Running&);
-
-	// メンバ
-
-public:
-
-	// シングルトン
-	static Running* Instance();
   
 	virtual void Enter(PlayerCharacterEntity* );
 	virtual void StateTranceDetect(PlayerCharacterEntity*);
@@ -162,6 +127,11 @@ private:
 	SurfaceMove(const SurfaceMove&);
 	SurfaceMove& operator=(const SurfaceMove&);
 
+	// ##### 定数
+	static const double ThresholdSpeedRunToWark;  // Running<->Warking の速度の閾値（平方値）
+	static const double ThresholdSticktiltRunToWark;   // Running<->Warking のスティック傾きの閾値
+	static const double MaxCentripetalForce;   // 旋回時の最大向心力
+
 	// メンバ
 	double m_dCentripetalForce; // 向心力の大きさ （遠心力によるバンク演出のために使用）
 
@@ -179,17 +149,66 @@ public:
 
 	// 補助
 	static Vector3D calculateForce( 
-		Vector3D Vel,
-		Vector3D Upper,
+		Vector3D vVel, 
+		Vector3D vUpper,
+		Vector3D vArrangeSteeringForce,
 		double DriveForce,
-		double CentripetalForce,
-		double eta );
+		double eta,
+		double &CentripetalForce // 計算した向心力を返す
+		);
 
 	// #### デバック用 ####
-	Vector3D DBG_m_vStickPos; // （Entity平面上に投影した）スティックの傾きの位置
 
-	Vector2D DBG_m_vEntiPosOnScreen; 
+	Vector3D DBG_m_vSteeringForce;
 
+};
+
+// #### OneEightyDegreeTurn ステート ####
+// ダッシュからの切り返し、急方向転換。= 180°度方向転換
+class OneEightyDegreeTurn : public State
+{
+private:
+	OneEightyDegreeTurn(){}
+
+	// コピーコンストラクタ、代入演算子を private に
+	OneEightyDegreeTurn(const OneEightyDegreeTurn&);
+	OneEightyDegreeTurn& operator=(const OneEightyDegreeTurn&);
+
+	// ##### 定数
+	static const double SlowDownEnough;    // この速度以下になったらブレーキ状態→切返し状態に移行する
+	static const double TurningDulation;   // 切返し状態の継続時間
+	static const double MaxVelocity;       // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+	static const double ViscousRsisTurn;   // （切返し時の）粘性抵抗係数
+	static const double ViscousRsisBreak;  // （ブレーキ時の）粘性抵抗係数
+	static const double InnerProductForStartTurn; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
+
+
+	// メンバ
+	Vector3D m_vVelDirBeginning; // 切返し動作開始した時の速度方向
+
+	// サブ状態
+	enum SubStateID
+	{
+		SUB_BREAKING = 0,
+		SUB_TURNING  = 1
+	};
+	SubStateID m_eSubState;
+
+	// ##### デバッグ用
+
+	double DBG_m_dAngle;
+	double DBG_m_dRemainingTime;
+
+public:
+
+	// シングルトン
+	static OneEightyDegreeTurn* Instance();
+  
+	virtual void Enter(PlayerCharacterEntity* );
+	virtual void StateTranceDetect(PlayerCharacterEntity*);
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
+	virtual void Render(PlayerCharacterEntity*);
+	virtual void Exit(PlayerCharacterEntity* );
 
 };
 

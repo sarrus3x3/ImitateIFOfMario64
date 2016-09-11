@@ -2,6 +2,10 @@
 #include "State.h"
 #include "AnimationManager.h"
 #include "VirtualController.h"
+#include "CameraWorkManager.h"
+#include "SolidObjects.h"
+
+#include <cassert>
 
 // #### コンストラクタ ####
 PlayerCharacterEntity::PlayerCharacterEntity(
@@ -25,7 +29,8 @@ PlayerCharacterEntity::PlayerCharacterEntity(
 			m_bJmpChrgFlg(false),
 			m_dStopWatchCounter(0.0),
 			m_bTouchGroundFlg(true),
-			m_bJmpChrgUsageFlg(false)
+			m_bJmpChrgUsageFlg(false),
+			m_lGameStepCounter( 1 )
 {
 	// AnimationManager のインスタンスを生成
 	m_pAnimMgr = new AnimationManager();
@@ -50,10 +55,11 @@ void PlayerCharacterEntity::ChangeState( State *pNewState )
 
 void PlayerCharacterEntity::Update(double time_elapsed)
 {
+	m_lGameStepCounter++;
 	m_dTimeElapsed = time_elapsed;
 	m_dStopWatchCounter += m_dTimeElapsed;
 
-	// 接地判定
+	// #### 接地判定
 	// 位置が地平面以下　かつ 速度が下方向 の場合
 	if( !m_bTouchGroundFlg && m_vPos.y < 0 && m_vVelocity.y < 0 )
 	{
@@ -93,12 +99,6 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 		m_vVelocity += time_elapsed * acceleration ;
 	}
 
-	// 旋回運動による速度ベクトルの回転
-	if (m_vVelocity.toVector2D().sqlen() > 0.00000001)
-	{
-		m_vVelocity += time_elapsed * m_vVelocity.len() * PhyVar.DstVar;
-	}
-
 	// #### 位置を更新
 	if( PhyVar.UsePosVar )
 	{
@@ -108,26 +108,21 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 	{
 		m_vPos += m_vVelocity * time_elapsed;
 	}
-	
-	// Entityの向きを速度方向から更新
-	if (m_vVelocity.toVector2D().sqlen() > 0.00000001)
-	{
-		Vector2D Head2D = m_vVelocity.toVector2D().normalize();
-		//Vector2D Side2D = Head2D.side();
+
+	// #### Entityの向きを更新
+
+	if( PhyVar.UseHeading )
+	{ // 向きを直接設定する場合
+		m_vHeading = PhyVar.Heading;
+	}
+	else if (m_vVelocity.toVector2D().sqlen() > 0.00000001)
+	{ // Entityの向きを速度方向から更新
+		Vector2D Head2D = m_vVelocity.toVector2D().normalize(); // キャラクタ水平面＝xz平面の場合限定の実装
 		m_vHeading = Head2D.toVector3D();
-		//m_vSide    = Side2D.toVector3D();
-		m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
-
 	}
-	else
-	{
-		// 旋回運動による速度ベクトルの回転
-		m_vHeading += time_elapsed * PhyVar.DstVar;
-		m_vHeading = m_vHeading.normalize(); // 再規格化
-		//m_vSide = m_vHeading.toVector2D().side().toVector3D();
-		m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
 
-	}
+	// m_vHeading より、m_vSide を更新
+	m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
 
 };
 
@@ -137,6 +132,85 @@ void PlayerCharacterEntity::Render()
 	
 	m_pAnimMgr->Play(this);
 };
+
+Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
+{
+	static Vector3D vStickTiltFromCam;
+	static LONGLONG LastGameStep=0;
+
+	// 保存してあるLastGameStepの値と、現在のゲームステップ数を比較し、再計算要否を判定する。
+	if( LastGameStep == m_lGameStepCounter )
+	{
+		return vStickTiltFromCam;
+	}
+
+	// ##### スティックの傾きの方向から、Entityの移動方向を計算する
+	// ・ワールド座標を使うことによる精度劣化を防ぐため、計算をEntityのローカル座標で行うように修正
+	
+	// 現在のカメラのビュー行列を退避（Entityの進行指示方向を求める計算で、ビュー行列をEntityのローカル座標でのものに設定するため）
+	MATRIX MSaveViewMat = GetCameraViewMatrix();
+
+	// カメラのビュー行列をEntityのローカル座標でのものに設定
+	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
+
+	static const Vector3D vPosOrign = Vector3D( 0,0,0 );
+
+	// スクリーン上のEntity位置を計算
+	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( vPosOrign.toVECTOR() );
+	assert( EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0 );
+
+	// スクリーン上にスティックの傾き方向の位置を求める
+	Vector3D vStickTile = vPosOrign;
+	vStickTile.x =  m_pVirCntrl->m_vStickL.x;
+	vStickTile.y = -m_pVirCntrl->m_vStickL.y;
+	Vector3D StickTiltPosForScreen = EntiPosForScreen + vStickTile;
+
+	// スティックの傾き方向の位置Entityの地平面に投影するした位置を求める
+	StickTiltPosForScreen.z = 0.0;
+	Vector3D BgnPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
+	StickTiltPosForScreen.z = 1.0;
+	Vector3D EndPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
+	Vector3D vCrossPos;
+	int rtn = calcCrossPointWithXZPlane( BgnPos, EndPos, vCrossPos ); // これは、厳密にはキャラクタ水平面ではないので、ジャンプすると不正確。修正が必要★
+	vCrossPos.y = 0; // 安易な対処法
+
+	// 操舵力の決定
+	Vector3D vSteeringForceDir = ( vCrossPos ).normalize();
+	if( rtn < 0 )
+	{ // カメラの向きの反対側で地平面と交わる場合
+		vSteeringForceDir *= -1; // 反対向きに設定
+	}
+
+	// カメラのビュー行列を元に戻す
+	SetCameraViewMatrix( MSaveViewMat );
+
+	// 大きさはオリジナルのスティックの傾きを使用
+	vStickTiltFromCam = m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
+
+	// 計算時のゲームステップ数を保存
+	LastGameStep = m_lGameStepCounter;
+
+	// デバック用に記憶
+	DBG_m_vStickPos = 10 * vStickTiltFromCam + Pos();
+
+	return vStickTiltFromCam;
+
+};
+
+void PlayerCharacterEntity::DBG_renderMovementDirFromStick()
+{
+	// デバック用
+	// （Entity平面上に投影した）スティックの傾きの位置を描画
+	static PlaneRing RingIns( 
+		0.6, 0.4, 16, 
+		GetColorU8(255,   0,   0, 0 ),
+		GetColorU8(255, 255, 255, 0 ) );
+	RingIns.setCenterPos( DBG_m_vStickPos );
+	RingIns.Render(); 
+
+};
+
+
 
 
 // ##### AnimUniqueInfoManager #####
@@ -157,11 +231,14 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- NoAnim --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[NoAnim];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "NoAnim"; 
+
 
 	// --------- Standing --------- 
 	// Jumpingのモーションの立ち絵を切り出して利用
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Standing];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Standing"; 
 	pAnimUnq->m_CurAttachedMotion = 1; 
 	pAnimUnq->m_bRepeatAnimation  = false;
 	pAnimUnq->m_bCutPartAnimation = true;
@@ -171,8 +248,9 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- Walking --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Walking];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Walking"; 
 	pAnimUnq->m_CurAttachedMotion = 2; 
-	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, -4.75 );
+	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.75 );
 	pAnimUnq->m_fUniquePlayPitch = (float)(14.0/12.0); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
 	pAnimUnq->m_fAnimStartTime   = 4.0f;
 	pAnimUnq->m_fAnimInterval    = 14.0;
@@ -180,20 +258,23 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- Running --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Running];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Running"; 
 	pAnimUnq->m_CurAttachedMotion = 0; 
-	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, -4.5 );
+	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.5 );
 	pAnimUnq->m_fAnimStartTime    = 20.0f;
 	pAnimUnq->m_fAnimInterval     = 12.0;
 
 	// --------- Jumping --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jumping];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jumping"; 
 	pAnimUnq->m_CurAttachedMotion = 1;
 	pAnimUnq->m_bRepeatAnimation  = false;
 
 	// --------- Jump_PreMotion --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jump_PreMotion];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jump_PreMotion"; 
 	pAnimUnq->m_CurAttachedMotion = 1;
 	pAnimUnq->m_bRepeatAnimation  = false;
 	pAnimUnq->m_bCutPartAnimation = true;
@@ -203,6 +284,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- Jump_Ascent --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jump_Ascent];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jump_Ascent"; 
 	pAnimUnq->m_CurAttachedMotion   = 1;
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
@@ -214,6 +296,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- Jump_Descent --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jump_Descent];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jump_Descent"; 
 	pAnimUnq->m_CurAttachedMotion   = 1;
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
@@ -225,6 +308,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// --------- Jump_Landing --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jump_Landing];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jump_Landing"; 
 	pAnimUnq->m_CurAttachedMotion   = 1;
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
@@ -236,16 +320,51 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	// ジャンプ着地→走り出しのアニメーションで使用するため）
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jump_Landing_Short];
 	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Jump_Landing_Short"; 
 	pAnimUnq->m_CurAttachedMotion   = 1;
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
 	pAnimUnq->m_fAnimStartTime      = 31.35f; // ※２
 	pAnimUnq->m_fAnimEndTime        = 33.35f;  // 重心が一番低いタイミング＋少し長めに取ってみる
 
-	// --------- DBG_HairUp --------- 
-	pAnimUnq = &m_pAnimUniqueInfoContainer[DBG_HairUp];
+	// --------- Breaking --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Breaking];
 	pAnimUnq->init();
-	pAnimUnq->m_CurAttachedMotion = 5; 
+	pAnimUnq->m_sAnimName = "Breaking"; 
+	pAnimUnq->m_CurAttachedMotion   = 4;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 0.0f; 
+	pAnimUnq->m_fAnimEndTime        = 14.0f; 
+	//pAnimUnq->m_bCorrectionToCenter = true;
+	///pAnimUnq->m_vFixCenterPosLocal += Vector3D( -0.01, -5.68, -1.39 );
+	//pAnimUnq->m_vFixCenterPosLocal += Vector3D( -0.01, -5.68, -0.39 );
+	//pAnimUnq->m_bCorrectionToCenterButY = true;
+	pAnimUnq->m_fUniquePlayPitch = (float)3.0;
 
+	// --------- Turning --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Turning"; 
+	pAnimUnq->m_CurAttachedMotion   = 4;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 14.0f; 
+	pAnimUnq->m_fAnimEndTime        = 41.0f; 
+	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
+
+	// --------- BreakAndTurn --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAndTurn];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreakAndTurn"; 
+	pAnimUnq->m_CurAttachedMotion   = 4;
+
+	// --------- BreakingAfter --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakingAfter];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreakingAfter"; 
+	pAnimUnq->m_CurAttachedMotion = 6;
+	pAnimUnq->m_bRepeatAnimation  = false;
+	pAnimUnq->m_fUniquePlayPitch = (float)2.0;
 
 };

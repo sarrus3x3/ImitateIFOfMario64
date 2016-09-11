@@ -14,7 +14,9 @@ AnimationManager::AnimationManager() :
 	m_bIsNowBlending( false ),
 	m_dBlendElapsed( 0 ),
 	m_dAnimSwitchTime( 0 ),
-	DBG_m_bPauseOn(false)
+	DBG_m_bPauseOn(false),
+	DBG_m_bBlendPauseOn( false )
+
 {
 	// ################## モデルの読み込み #######################
 
@@ -250,7 +252,11 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	if( m_bIsNowBlending )
 	{
 		// m_dBlendElapsed を更新（m_PlayPitch値 は考慮）
-		m_dBlendElapsed += m_PlayPitch * (float)TimeElaps;
+		// DBG 
+		if( !DBG_m_bBlendPauseOn )
+		{
+			m_dBlendElapsed += m_PlayPitch * (float)TimeElaps;
+		}
 
 		// もし、m_dAnimSwitchTime < m_dBlendElapsed の場合は、Curのブレンド値を1にし、ブレンド処理を終了する
 		if( m_dAnimSwitchTime < m_dBlendElapsed )
@@ -263,14 +269,26 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 		{
 			// m_dAnimSwitchTime と m_dBlendElapsed から、ブレンド率を計算
 			float BRate = (float)(m_dBlendElapsed/m_dAnimSwitchTime);
+
 			m_pCurAnimPlayInfo->m_fBlendRate = BRate;
 			m_pPrvAnimPlayInfo->m_fBlendRate = (float)(1.0 - BRate);
 		}
 	}
 
+	// DBG 
+	float time_elaps;
+	if( DBG_m_bPauseOn )
+	{
+		time_elaps = 0.0;
+	}
+	else
+	{
+		time_elaps = TimeElaps;
+	}
+
 	// 再生要否は m_bRemoved の中を見て判断
-	if( !m_pCurAnimPlayInfo->m_bRemoved ) PlayOneAnim( TimeElaps, Pos, Head, m_pCurAnimPlayInfo );
-	if( !m_pPrvAnimPlayInfo->m_bRemoved ) PlayOneAnim( TimeElaps, Pos, Head, m_pPrvAnimPlayInfo );
+	if( !m_pCurAnimPlayInfo->m_bRemoved ) PlayOneAnim( time_elaps, Pos, Head, m_pCurAnimPlayInfo );
+	if( !m_pPrvAnimPlayInfo->m_bRemoved ) PlayOneAnim( time_elaps, Pos, Head, m_pPrvAnimPlayInfo );
 	
 
 	// モデルセンタへのモーション位置の補正ベクトルを、
@@ -294,9 +312,10 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 
 	// 位置補正用の座標変換行列を生成
 	MATRIX TransMac = MGetIdent();
-	TransMac.m[3][0] = -1*(float)CorrectionVec.x;
+	TransMac.m[3][0] = (float)CorrectionVec.x;
 	TransMac.m[3][1] = (float)CorrectionVec.y;
-	TransMac.m[3][2] = -1*(float)CorrectionVec.z;
+	TransMac.m[3][2] = (float)CorrectionVec.z;
+
 
 	// 姿勢傾きの設定
 	TransMac = MMult( TransMac, MGetRotZ( (float)m_dBankAngle ) ); // ※ モデルはデフォルトではz軸負方向を向いている
@@ -317,9 +336,6 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 
 	// 座標変換行列をモデルに適用
 	MV1SetMatrix( m_iModelHandle, TransMac );
-
-	//MV1SetPosition( m_iModelHandle, Pos.toVECTOR() );
-	// 差分を考慮して、モデル（描画）位置を設定
 
 	// m_vHeading のベクトルを描画（補助）
 	//DrawAllow3D( Pos, Head );
@@ -342,7 +358,7 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 
 	// curplaytime : 次の再生時刻
 	float curplaytime = pPlayAnim->m_CurPlayTime;
-	if( !pPlayAnim->m_bPause && !pPlayAnim->m_bFinished && !DBG_m_bPauseOn){
+	if( !pPlayAnim->m_bPause && !pPlayAnim->m_bFinished ){
 		float UniquePlayPitch = pPlayAnim->getAnimUnqPointer()->m_fUniquePlayPitch;
 		curplaytime += m_PlayPitch * UniquePlayPitch * telaps;
 	}
@@ -365,22 +381,15 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 	{ // 繰返し再生 OFF
 		// m_MotionTotalTime を超えていたら m_MotionTotalTime を設定する
 		pPlayAnim->m_CurPlayTime = curplaytime;
-		if( pPlayAnim->m_CurPlayTime > pPlayAnim->m_MotionTotalTime )
+		if( pPlayAnim->m_CurPlayTime > (pPlayAnim->m_MotionTotalTime) )
 		{ 
-			pPlayAnim->m_CurPlayTime = pPlayAnim->m_MotionTotalTime;
+			pPlayAnim->m_CurPlayTime = (pPlayAnim->m_MotionTotalTime);
 			pPlayAnim->m_bFinished = true;
 		}
 	}
 
 	// ブレンド率を設定
-	if( pAnimUnq->m_bCorrectionToCenter )
-	{
-		MV1SetAttachAnimBlendRate( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_fBlendRate ) ; // ブレンド実行中かにかかわらず、毎回よばれちゃうけど、いかがなものか？（処理性能的に問題ないか？）
-	}
-	else
-	{
-		MV1SetAttachAnimBlendRate( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_fBlendRate ) ; // ブレンド実行中かにかかわらず、毎回よばれちゃうけど、いかがなものか？（処理性能的に問題ないか？）
-	}
+	MV1SetAttachAnimBlendRate( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_fBlendRate ) ; // ブレンド実行中かにかかわらず、毎回よばれちゃうけど、いかがなものか？（処理性能的に問題ないか？）
 
     // 再生時間をセットする
 	if( pPlayAnim->m_AttachIndex != -1 )
@@ -397,6 +406,10 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 		Vector3D DesiredCntPos = pAnimUnq->m_vFixCenterPosLocal;
 		Vector3D CurFrmPos( MV1GetAttachAnimFrameLocalPosition( m_iModelHandle, pPlayAnim->m_AttachIndex, m_iCenterFrameIndex ) );
 		CorrectionVec = DesiredCntPos - CurFrmPos; // センターフレームの位置と望むセンター位置との差分を計算
+		if( pAnimUnq->m_bCorrectionToCenterButY )
+		{
+			CorrectionVec.y = 0; // y軸成分の補正をしないようにする
+		}
 	}
 
 	// アニメーション固有位置補正を加算

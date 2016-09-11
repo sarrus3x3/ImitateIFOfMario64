@@ -21,6 +21,8 @@
 // デバック用
 #include "AnimationManager.h"
 
+#include "DEMO_DashTurnBehavior.h"
+
 
 // ########### 制御用 defin ###########
 
@@ -211,6 +213,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	// ################## 変数の定義・初期化 #######################
 
+	// ゲーム時間のカウンタ
+	int GameWorldCounter=0;
+
 	// タイマを生成
 	PrecisionTimer timer;
 	timer.Start();
@@ -220,8 +225,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	VController.CheckAndSetGamePadMode();
 
 	// カメラモードを設定
-	CameraWorkManager::Instance()->setCameraMode( CameraWorkManager::TrackingMovingTarget );
-	//CameraWorkManager::Instance()->setCameraMode( CameraWorkManager::RotateCamOnGazePoint );
+	//CameraWorkManager::Instance()->setCameraMode( CameraWorkManager::TrackingMovingTarget );
+	CameraWorkManager::Instance()->setCameraMode( CameraWorkManager::RotateCamOnGazePoint );
 	int CurCameraMode = 0;
 
 	// Entityのインスタンス化
@@ -237,6 +242,21 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// FPS測定
 	MeasureFPS InsMeasureFPS;
 
+	// みせかけアイテム回収機能実験
+	SampleGameWorld::Initialize();
+	SampleGameWorld GameWorldIns;
+
+	GameWorldIns.SetItemsToWorld( 20.0, 5.0, "ItemPlaceDef.bmp" );
+
+	// アイテムをいくつかおく
+	/*
+	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 20, 0, 0 ) ) );
+	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 25, 0, 0 ) ) );
+	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 30, 0, 0 ) ) );
+	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 35, 0, 0 ) ) );
+	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 40, 0, 0 ) ) );
+	*/
+
 
 	// ライト関係パラメータ
 	Vector3D LightPos;
@@ -247,6 +267,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     float Atten0 = 0.0f ;
     float Atten1 = 0.0f ;
     float Atten2 = 0.0001f ;
+
+
 
 #ifdef FARFAR_AWAY
 	int Sx , Sy , Cb ;
@@ -260,6 +282,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		// タイムスライスを取得
 		double timeelaps = timer.TimeElapsed();
+
+		// ゲーム時間のカウンタを更新
+		GameWorldCounter++;
 
 		// ################## コントローラーを更新 #######################
 		VController.Update();
@@ -320,6 +345,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		// ################## EntityのUpdate #######################
 		PCEnti.Update( timeelaps );
+
+		// ######### みせかけだけアイテム回収機能の実験 #########
+		GameWorldIns.Update( timeelaps , PCEnti.Pos() );
 
 		// ################## ライト（照明）の設定 #######################
 #ifdef LIGHT_ON
@@ -405,13 +433,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// ################## Entityの描画 #######################
 		PCEnti.Render();
 
+		// ######### みせかけだけアイテム回収機能の実験 #########
+		GameWorldIns.Render();
+
 		// ################## コントローラーを描画 #######################
 		VController.Render( Vector2D(25,25) );
 
 		// ################## デバック情報を出力 #######################
-		/*
 		//行数
-		int colmun= 0;
+		int colmun= 10;
 		int width = 15;
 
 		// m_FrameTimeHistoryを更新
@@ -430,6 +460,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Speed:%8f",PCEnti.Speed() ); 
 		colmun++;
 
+		/*
 		// Entityの移動レベルを表示
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Mode Level:%d",PCEnti.m_eMoveLevel ); 
 		colmun++;

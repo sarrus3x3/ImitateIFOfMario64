@@ -157,7 +157,7 @@ public:
 	// âÒì]çsóÒ R
 	// |  cos( a ) , -sin( a ) |
 	// |  sin( a ) ,  cos( a ) |
-	Vector2D rot( double angle )
+	Vector2D rot( double angle ) const
 	{
 		Vector2D tmp;
 		tmp.x =  cos(angle) * x - sin(angle) * y ;

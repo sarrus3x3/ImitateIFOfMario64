@@ -14,11 +14,16 @@
 // ★どこで持つかを書く
 struct AnimUniqueInfo
 {
+	string  m_sAnimName; // アニメーションの名前。デバック等で出力時に使用。
+
 	int   m_CurAttachedMotion; // 現在アタッチしているMotion番号（ 初音ミクxxx.vmd の xxx の番号 ）
 
-	// アニメーションの位置調整に関する
-	bool     m_bCorrectionToCenter; // ON だとセンター位置を固定する
+	// アニメーション位置調整
 	Vector3D m_vPosShift;           // Motionの位置の調整に使用（Motionの位置とEntityの位置を合わせるための補正に使用）
+
+	// センター固定位置 - センター位置を指定。m_vPosShift も有効なことに注意
+	bool     m_bCorrectionToCenter;     // ON だとセンター位置を固定する
+	bool     m_bCorrectionToCenterButY; // ON だと"Y軸成分を除き"センター位置を固定する。m_bCorrectionToCenter も ON にすること。※ 使用非推奨！
 	Vector3D m_vFixCenterPosLocal;  // m_bCorrectionToCenter:ON の場合に固定するセンター位置（モデル位置に対するローカル座標）向きとかは考慮してねーから。
 
 	// アニメーションの繰返し再生に関する
@@ -38,8 +43,10 @@ struct AnimUniqueInfo
 	// 初期化メソッド
 	void init()
 	{
+		m_sAnimName           = "UNDEFINE";
 		m_CurAttachedMotion   = -1;
 		m_bCorrectionToCenter = false;
+		m_bCorrectionToCenterButY = false;
 		m_vPosShift           = Vector3D( 0.0, 0.0, 0.0 );
 		m_vFixCenterPosLocal  = Vector3D( 0.0, 8.0, 0.0 );
 		m_bRepeatAnimation    = true;
@@ -112,6 +119,10 @@ struct ArgumentOfSetAnim
 	}
 
 };
+
+// ########################################################################
+// ######################## AnimationManager Class ########################
+// ########################################################################
 
 class AnimationManager
 {
@@ -192,7 +203,8 @@ public:
 	float CurPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }
 	void  DrawAllow3D( Vector3D cnt, Vector3D heading ); // 矢印を描画
 	float getMotionTotalTime(){ return m_pCurAnimPlayInfo->m_MotionTotalTime; }
-
+	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; }
+	
 // ############ 物理演算（髪の毛を揺らすとか）関連 ############
 public:
 	// 物理演算の種別（列挙型）
@@ -245,10 +257,10 @@ private:
 
 // ############ デバック用機能 ############
 private:
-	bool DBG_m_bPauseOn; // オンならAnimationを停止させる
 
 public:
-	void DBG_PauseOnOff(){DBG_m_bPauseOn = !DBG_m_bPauseOn;}
+	bool DBG_m_bPauseOn; // オンならAnimationを停止させる
+
 	bool DBG_getPauseState(){ return DBG_m_bPauseOn; }
     Vector3D DBG_RenderCenterFramePos(); // 「センター」フレームの座標位置を描画する、ついでに座標位置を返却する。
 	void DBG_setCurPlayTimeOfCurAnim( float time ){ m_pCurAnimPlayInfo->m_CurPlayTime = time; };
@@ -265,5 +277,15 @@ public:
 	int DBG_m_iModelHandle_Physics;  // 物理演算ありで読み込んだモデルのハンドル
 	int DBG_m_iModelHandle_HideHair; // 髪の毛削除を削除したモデルのハンドル
 
+	float DBG_getCurAnimBRate(){ return m_pCurAnimPlayInfo->m_fBlendRate; };
+	float DBG_getPrvAnimBRate(){ return m_pPrvAnimPlayInfo->m_fBlendRate; };
+
+	float DBG_getCurAnimPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }; 
+	float DBG_getPrvAnimPlayTime(){ return m_pPrvAnimPlayInfo->m_CurPlayTime; }; 
+
+	bool DBG_m_bBlendPauseOn; // アニメーションブレンディングの一時停止
+
+
 };
 
+ 

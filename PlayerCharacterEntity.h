@@ -18,21 +18,26 @@ class VirtualController;
 struct PhysicalQuantityVariation
 {
 	Vector3D Force;   // 力
-	Vector3D VelVar;  // 速度の変位（単位時間あたり）
-	Vector3D PosVar;  // 位置の変位（単位時間あたり）
-	Vector3D DstVar;  // 方向の変位（単位時間あたり）
+
 	bool UseVelVar;   // VelVar 使用するflg
+	Vector3D VelVar;  // 速度の変位（単位時間あたり）
+
 	bool UsePosVar;   // PosVar 使用するflg
+	Vector3D PosVar;  // 位置の変位（単位時間あたり）
+
+	bool UseHeading;  // Entityの向きを直接設定する
+	Vector3D Heading; // Entityの向きを直接設定する
 
 	// 初期化メソッド
 	void init()
 	{
 		Force  = Vector3D(0,0,0);
-		VelVar = Vector3D(0,0,0);
-		PosVar = Vector3D(0,0,0);
-		DstVar = Vector3D(0,0,0);
 		UseVelVar = false;
+		VelVar = Vector3D(0,0,0);
 		UsePosVar = false;
+		PosVar = Vector3D(0,0,0);
+		UseHeading = false;
+		Heading = Vector3D(0,0,0);
 	};
 };
 
@@ -42,6 +47,7 @@ class PlayerCharacterEntity
 private:
 	// #### GameWorld 関連 ####
 	double m_dTimeElapsed;           // タイムスライス（Updateで更新）
+	LONGLONG m_lGameStepCounter;     // ゲーム開始してからのタイムステップ数をカウント（Updateで更新）（ゲームステップで１回のみ更新する状態の更新要否の判定に使用する）
 
 	// #### ステート管理関連 ####
 	State* m_pCurrentState;    // 現在の State
@@ -95,6 +101,8 @@ public:
 	virtual void Render(); // Entityを描画
 	void ChangeState( State* ); // 保持しているStateを更新する
 
+
+
 	// #### Anmation識別enumを定義 ####
 	enum AnimationID
 	{
@@ -108,10 +116,13 @@ public:
 		Jump_Descent   = 7, // ジャンプ下降中
 		Jump_Landing   = 8,  // ジャンプ後の着地
 		Jump_Landing_Short = 9,  // ジャンプ後の着地（センター位置がもっとも下がるところまで。ジャンプ着地→走り出しのアニメーションで使用するため）
-		DBG_HairUp = 10
+		Breaking = 10,  // ダッシュからの切返し状態の"ブレーキ中"のモーション
+		Turning  = 11,  // ダッシュからの切返し状態の"切返し中"のモーション
+		BreakAndTurn  = 12, // モーション004全体
+		BreakingAfter = 13   // ダッシュからの切返しで、急ブレーキ後に切り返さず立ち状態に戻る時の、ブレーキからの起き上がりモーション
 	};
 
-	static const int m_iAnimIDMax=11;
+	static const int m_iAnimIDMax=14;
 
 	// #### アニメーション固有情報管理クラス
 	// 全てのアニメーション固有情報が格納されたコンテナを管理するためのシングルトン
@@ -162,10 +173,19 @@ public:
 	void   StopWatchOn(){ m_dStopWatchCounter=0; }; // ストップウォッチオン
 	double getStopWatchTime(){ return m_dStopWatchCounter; }; // ストップウォッチの測定時間を取得
 
+	// #### 補助メソッド ####
+	
+	// スティックの傾きの方向からEntityの移動方向を計算する
+	Vector3D calcMovementDirFromStick();
+
 	// #### 暫定 ####
+public:
 	bool m_bTouchGroundFlg;  // 接地flg
 	bool m_bJmpChrgUsageFlg; // ジャンプチャージでジャンプ力を調整するIFを使用するFlg
 
 	double DBG_m_dDBG;
+
+	Vector3D DBG_m_vStickPos;              // （Entity平面上に投影した）スティックの傾きの位置
+	void DBG_renderMovementDirFromStick(); // デバッグ用 （Entity平面上に投影した）スティックの傾きの位置を描画
 
 };

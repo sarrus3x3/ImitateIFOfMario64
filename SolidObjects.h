@@ -73,6 +73,46 @@ public:
 
 };
 
+// ############### 六角形クリスタル アイテム用 ###############
+class HexagonCrystal
+{
+private:
+	VERTEX3D* m_pVertex; // ポリゴン集合を保持
+	int m_PolygonNum;    // ポリゴン数
+
+	Vector3D* m_pRawVertexPos; // オリジナルの頂点位置情報を保持する
+	Vector3D* m_pRawVertexNrm; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に、法線
+	
+	Vector3D  m_vCntPos;      // 図形の中心位置 
+	double    m_dHight;       // 高さ 
+	double    m_dWidth;       // 幅 
+	double    m_dDepth;       // 奥行き 
+	double    m_dRaito;       // 中面に対する前面／後面の大きさの比率
+
+public:
+	// コンストラクタ
+	HexagonCrystal( 
+		Vector3D  CenterPos,        // 図形の中心位置
+		double    Hight,            // 高さ
+		double    Width,            // 幅
+		double    Depth,            // 奥行き
+		double    Raito,            // 中面に対する前面／後面の大きさの比率
+		COLOR_U8  DifColor, // 頂点ディフューズカラー
+		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
+		);
+
+	// 描画
+	void Render();
+
+	// m_pVertex を m_pRawVertexPos で初期化
+	void resetVertex();
+
+	// 与えられた行列 Mat で m_pVertex を変換
+	void MatTransVertex( const MATRIX &Mat );
+
+};
+
+
 // ############### テキスチャを貼り付けられる球 ###############
 // 【留意事項】
 // ・パノラマ球を最背面に描画するため、RenderでZバッファをOFFにしている。

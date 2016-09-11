@@ -2,23 +2,13 @@
 #include "AnimationManager.h"
 #include "VirtualController.h"
 #include "MyUtilities.h"
-#include "SolidObjects.h"
-#include "CameraWorkManager.h"
+//#include "SolidObjects.h"
+//#include "CameraWorkManager.h"
 
 #include <cassert>
 
 //static const double EPS = 1e-5;
 static const double EPS = 0.5;
-
-void State::Rotate( 
-		double RotateVelSpeed, 
-		PlayerCharacterEntity* pEntity, 
-		PhysicalQuantityVariation& PhyVar )
-{
-	// 横キーが押されていれば旋回ベクトルを設定
-	double KeyHoriz = -1.0 * (double)pEntity->m_pVirCntrl->Horiz;
-	PhyVar.DstVar = KeyHoriz * RotateVelSpeed * pEntity->Side();
-};
 
 // #### Dammy ステートのメソッド ########################################################################
 Dammy* Dammy::Instance()
@@ -72,6 +62,12 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 		pEntity->m_pAnimMgr->setPitch(20.0);
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_Landing);
 		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing);
+	}
+	else if( pEntity->isMatchPrvState( OneEightyDegreeTurn::Instance() ) )
+	{
+		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreakingAfter);
+		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing, 10.0 );
 	}
 	else
 	{
@@ -155,9 +151,6 @@ void Standing::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariat
 
 	// 完全に速度が0に落ちきっていないため、減速は継続
 	PhyVar.Force = -ViscousResistance * pEntity->Velocity() ;
-
-	// 止まっていても旋回は可能
-	Rotate( RotateVelSpeed, pEntity, PhyVar ); 
 }
 
 void Standing::Render(PlayerCharacterEntity* pEntity )
@@ -170,182 +163,6 @@ void Standing::Exit( PlayerCharacterEntity* pEntity )
 {
 	;
 }
-
-
-// #### Running ステートのメソッド ########################################################################
-Running* Running::Instance()
-{
-	static Running instance;
-	return &instance;
-}
-
-void Running::Enter( PlayerCharacterEntity* pEntity )
-{
-		// アニメーションを設定
-	if( pEntity->isMatchPrvState( Jump::Instance() ) )
-	{
-		// ジャンプ後であれば、着地のアニメーションを再生する
-		pEntity->m_pAnimMgr->setPitch(40.0);
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_Landing_Short);
-		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 20.0, false );
-		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Running, 5.0, false );
-	}
-	else
-	{
-		// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 10.0 );
-	}
-
-	// m_bJmpChrgFlg を初期化
-	pEntity->m_bJmpChrgFlg = false; 
-
-	// MoveLevelを設定
-	pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvRunning;
-}
-
-void Running::StateTranceDetect( PlayerCharacterEntity* pEntity )
-{
-	// m_bJmpChrgUsageFlg OFF
-	static const double JmpChrgWaitTime = 0.1; // ジャンプ開始までの待ち時間
-
-	// m_bJmpChrgUsageFlg ON
-	static const double JmpChrgMaxTime = 0.3;  // ジャンプチャージの最大時間
-
-	// #### ジャンプ関連
-	if( pEntity->m_bJmpChrgUsageFlg )
-	{
-		if( pEntity->m_bJmpChrgFlg )
-		{ // ジャンプチャージ中
-			// ButA が離された or ジャンプチャージ の最大時間を超過した
-			if( !pEntity->m_pVirCntrl->ButA.isPushed() 
-				|| pEntity->getStopWatchTime() > JmpChrgMaxTime )
-			{
-				// → StateをJumpに更新
-				//（Jump State のEnterの中でタイマ値からジャンプのサイズを計算する）
-				pEntity->ChangeState( Jump::Instance() );
-			}
-
-		}
-		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
-		{ // ButA がこの瞬間に押された
-			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
-			pEntity->StopWatchOn();        // タイマーセット
-		}
-	}
-	else
-	{
-		if( pEntity->m_bJmpChrgFlg )
-		{ // ジャンプチャージ中
-			// ButA が離された or ジャンプチャージ の最大時間を超過した
-			if( pEntity->getStopWatchTime() > JmpChrgWaitTime )
-			{
-				// StateをJumpに更新
-				pEntity->ChangeState( Jump::Instance() );
-			}
-
-		}
-		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
-		{ // ButA がこの瞬間に押された
-			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
-			pEntity->StopWatchOn();        // タイマーセット
-
-			// ジャンプ前のアニメーションを設定
-			//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_PreMotion, 5.0, false );
-			//float AnimTotalTime = pEntity->m_pAnimMgr->getMotionTotalTime(); // JmpChrgWaitTime 時間内にアニメーション再生が完了するように再生ピッチを調整
-			//float PlayPitch = (float)(AnimTotalTime/JmpChrgWaitTime);
-			//pEntity->m_pAnimMgr->setPitch(PlayPitch);
-		}
-	}
-	
-	// #### Standingへ遷移 その他 MoveLeve制御
-	static const double ThresholdSpeedForStop   = 5.0*5.0; // Standing ステートに遷移する速度の閾値
-	static const double ThresholdSpeedRunToWark = 35.0*35.0;
-	if( !(pEntity->m_pVirCntrl->Virti > 0)  )
-	{
-		if( pEntity->SpeedSq() < ThresholdSpeedForStop )
-		{ // コントローラー入力がなく、速度が十分に小さくなったら、StateをStandingに変更
-			pEntity->ChangeState( Standing::Instance() );
-			return ;
-		}
-		else if( pEntity->SpeedSq() < ThresholdSpeedRunToWark && pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvWalking )
-		{ // 速度が閾値より小さくなったら、アニメーションをwarkingに変更する。再生時に設定するピッチも変更する
-			pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvWalking; // MoveLeveを更新
-			// アニメーションを更新
-			pEntity->m_pAnimMgr->setAnim( 
-				PlayerCharacterEntity::Walking, 
-				8.0, 
-				false, 
-				true );
-		}
-	}
-	else
-	{ // 再びアクセレーションされた場合はMoveレベルを戻す必要がある
-		if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvRunning )
-		{
-			pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvRunning; // MoveLeveを更新
-			// アニメーションを更新
-			pEntity->m_pAnimMgr->setAnim( 
-				PlayerCharacterEntity::Running, 
-				8.0, 
-				false, 
-				true );
-		}
-	}
-
-
-}
-
-void Running::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar )
-{
-	// 物理定数を定義
-	static const double DrivingForce      =2000.0;        // 推進力
-	static const double ViscousResistance =  40.0;        // 粘性抵抗係数
-	static const double ViscousResistanceInertia = 10.0;  // 粘性抵抗係数（慣性推進時）
-	//static const double TurningAngle      = 0.25*DX_PI;   // 横キー入力時の推進力の傾き
-	static const double RotateVelSpeed    =   3.0;        // 旋回速度
-
-	PhyVar.init(); // 初期化
-
-	Vector3D vDrivingForce;
-
-	// 上方向キーが押されていれば
-	if( pEntity->m_pVirCntrl->Virti > 0 )
-	{
-		vDrivingForce = DrivingForce * pEntity->Heading() - ViscousResistance * pEntity->Velocity() ;
-	}
-	else
-	{
-		vDrivingForce = -1 * ViscousResistanceInertia * pEntity->Velocity() ;
-	}
-
-	PhyVar.Force = vDrivingForce ;
-
-	// 横キーが押されていれば旋回ベクトルを設定
-	Rotate( RotateVelSpeed, pEntity, PhyVar ); 
-	
-}
-
-void Running::Render(PlayerCharacterEntity* pEntity )
-{
-	// Animationに速度に応じた再生ピッチをセットする
-	double speed = pEntity->Speed();
-
-	// Running と Warking で再生ピッチがわける（地面の歩き方が自然になるよう）
-	if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvRunning )		
-	{
-		pEntity->m_pAnimMgr->setPitch((float)speed);
-	}
-	else if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvWalking )	
-	{
-		pEntity->m_pAnimMgr->setPitch((float)((14.0/12.0)*speed)); // ハードコーディングはマズイのだ
-	}
-};
-
-void Running::Exit( PlayerCharacterEntity* pEntity )
-{
-	;
-}
-
 
 // #### Jump ステートのメソッド ########################################################################
 Jump* Jump::Instance()
@@ -417,7 +234,7 @@ void Jump::StateTranceDetect( PlayerCharacterEntity* pEntity )
 		if( pEntity->m_pVirCntrl->Virti > 0 )
 		{
 			// State 変更
-			pEntity->ChangeState( Running::Instance() );
+			pEntity->ChangeState( SurfaceMove::Instance() );
 			return;
 		}
 		else
@@ -507,6 +324,17 @@ void Jump::Exit( PlayerCharacterEntity* pEntity )
 
 
 // #### SurfaceMove ステートのメソッド ########################################################################
+
+// ##### 定数
+//const double ThresholdSpeedRunToWark = 35.0*35.0; // Running<->Warking の速度の閾値（平方値）
+const double SurfaceMove::ThresholdSpeedRunToWark = 50.0*50.0; // Running<->Warking の速度の閾値（平方値）
+// 走り始め直後に進行方向を反転させた場合に切返し動作を行わないようにチューニング
+
+const double SurfaceMove::ThresholdSticktiltRunToWark = 0.6;   // Running<->Warking のスティック傾きの閾値
+
+const double SurfaceMove::MaxCentripetalForce = 500.0*10;   // 旋回時の最大向心力
+
+
 SurfaceMove* SurfaceMove::Instance()
 {
 	static SurfaceMove instance;
@@ -523,18 +351,51 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_Landing_Short);
 		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::SurfaceMove, 20.0, false );
 		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Running, 5.0, false );
+
+		// MoveLevelを設定
+		pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvWalking;
+
+	}
+	else if(pEntity->isMatchPrvState( OneEightyDegreeTurn::Instance() ))
+	{
+		// ダッシュからの切返しの後であれば、走りのアニメーションを継続する。
+		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 5.0, false );
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running  );
+
+		// あー、切返しキャンセルした場合はブレンドしたい → 切返し動作のサブステートをEntityに持たせる必要がある
+		// → 面倒くさいからいや…。ブレンドしても大丈夫だろ
+
+		// サブステートの評価を行う
+		if( (pEntity->m_pVirCntrl->m_dTiltQuantStickL > ThresholdSticktiltRunToWark) 
+			|| pEntity->SpeedSq() < ThresholdSpeedRunToWark )
+		{ // アナログスティック傾きがWarking閾値以上 or Entityのスピードが十分大きい
+			// サブステートを走りにセット
+			pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvRunning; // MoveLeveを更新
+			// アニメーションを更新
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 5.0, false );
+		}
+		else
+		{ 
+			// それ以外はサブステートを歩きにセット
+			pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvWalking; // MoveLeveを更新
+			// アニメーションを更新
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0, false );
+		}
+
 	}
 	else
 	{
 		// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0 );
+
+		// MoveLevelを設定
+		pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvWalking;
+
 	}
 
 	// m_bJmpChrgFlg を初期化
 	pEntity->m_bJmpChrgFlg = false; 
 
-	// MoveLevelを設定
-	pEntity->m_eMoveLevel = PlayerCharacterEntity::MvLvWalking;
 }
 
 void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
@@ -544,7 +405,6 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 	// m_bJmpChrgUsageFlg ON
 	static const double JmpChrgMaxTime = 0.3;  // ジャンプチャージの最大時間
-
 
 
 	// #### ジャンプ関連
@@ -592,11 +452,28 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			//pEntity->m_pAnimMgr->setPitch(PlayPitch);
 		}
 	}
+
+
+	// #### ダッシュからの切返しの遷移判定
+	static const double InnerProductForStartTurn = 0.0; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
 	
+	//if( pEntity->m_eMoveLevel == PlayerCharacterEntity::MvLvRunning )
+	if( pEntity->Velocity().sqlen() >= ThresholdSpeedRunToWark )
+	{ // 移動レベルが、Runningならば
+		Vector3D VelDir  = pEntity->Velocity().normalize();
+		Vector3D MoveDir = pEntity->calcMovementDirFromStick().normalize();
+		if( VelDir*MoveDir <= InnerProductForStartTurn )
+		{
+			pEntity->ChangeState( OneEightyDegreeTurn::Instance() );
+			return ;
+		}
+	}
+
+
 	// #### Standingへ遷移 その他 MoveLeve制御
 	static const double ThresholdSpeedForStop   = 5.0*5.0;   // Standing に遷移する速度の閾値（平方値）
-	static const double ThresholdSpeedRunToWark = 35.0*35.0; // Running<->Warking の速度の閾値（平方値）
-	static const double ThresholdSticktiltRunToWark = 0.6;   // Running<->Warking のスティック傾きの閾値
+	//static const double ThresholdSpeedRunToWark = 35.0*35.0; // Running<->Warking の速度の閾値（平方値）// SurfaceMove ステート クラスのメンバに変更
+	//static const double ThresholdSticktiltRunToWark = 0.6;   // Running<->Warking のスティック傾きの閾値 // // SurfaceMove ステート クラスのメンバに変更
 
 	pEntity->DBG_m_dDBG=pEntity->SpeedSq();
 
@@ -650,115 +527,23 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar )
 {
 	// 物理定数を定義
-	//static const double DrivingForce      =2000.0;        // 推進力
-	//static const double ViscousResistance =  40.0;        // 粘性抵抗係数
-	//static const double ViscousResistanceInertia = 40.0; //10.0;  // 粘性抵抗係数（慣性推進時）
-	//static const double TurningAngle      = 0.25*DX_PI;   // 横キー入力時の推進力の傾き
-	//static const double RotateVelSpeed    =   3.0;        // 旋回速度
-
 	static const double MaxVelocity      = 65.0; // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
-	static const double ViscousRsisInert = 10.0;  // 慣性推進時の粘性抵抗係数
-	static const double ViscousRsisAccel = 80.0;  // 加速時の粘性抵抗係数
 	
-	static const double MaxCentripetalForce =500.0*10;   // 旋回時の最大向心力
+	static const double ViscousRsisInert = 40.0;  // 慣性推進時の粘性抵抗係数
+	static const double ViscousRsisAccel = 40.0;  // 加速時の粘性抵抗係数
+	// 2016/08/18
+	// 走り始め直後に進行方向を反転させた場合に切返し動作を行わないようにチューニング
+	// 慣性推進時と加速時の粘性抵抗を同じにする。
+	// 切返し動作時の加速力に合せて値を小さくチューニングした
+
 	static const double sqMaxCentripetalForce = MaxCentripetalForce*MaxCentripetalForce;
 
 	static const double SensitivityCoefForTurning = 10; // 旋回時の入力に対する反応の良さ。
 
 	PhyVar.init(); // 初期化
 
-	// 16:45
-	// ##### スティックの傾きの方向から、Entityに働く操舵力の方向を計算する
-	// ・ワールド座標を使うことによる精度劣化を防ぐため、計算をEntityのローカル座標で行うように修正
-	
-	/*
-	// スクリーン上のEntity位置を計算
-	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( pEntity->Pos().toVECTOR() );
-	assert( EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0 );
-
-	// デバック
-	DBG_m_vEntiPosOnScreen.x = EntiPosForScreen.x;
-	DBG_m_vEntiPosOnScreen.y = EntiPosForScreen.y;
-
-	// スクリーン上にスティックの傾き方向の位置を求める
-	Vector3D vStickTile( 0,0,0);
-	vStickTile.x = pEntity->m_pVirCntrl->m_vStickL.x;
-	vStickTile.y = -pEntity->m_pVirCntrl->m_vStickL.y;
-	Vector3D StickTiltPosForScreen = EntiPosForScreen + vStickTile;
-
-	// スティックの傾き方向の位置Entityの地平面に投影するした位置を求める
-	StickTiltPosForScreen.z = 0.0;
-	Vector3D BgnPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
-	StickTiltPosForScreen.z = 1.0;
-	Vector3D EndPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
-	Vector3D vCrossPos;
-	int rtn = calcCrossPointWithXZPlane( BgnPos, EndPos, vCrossPos ); // これは、厳密にはキャラクタ水平面ではないので、ジャンプすると不正確。修正が必要★
-	vCrossPos.y = 0; // 安易な対処法
-
-	// 操舵力の決定
-	Vector3D vSteeringForceDir = ( vCrossPos - pEntity->Pos() ).normalize();
-	if( rtn < 0 )
-	{ // カメラの向きの反対側で地平面と交わる場合
-		vSteeringForceDir *= -1; // 反対向きに設定
-	}
-
-	*/
-
-	// 現在のカメラのビュー行列を退避（Entityの進行指示方向を求める計算で、ビュー行列をEntityのローカル座標でのものに設定するため）
-	MATRIX MSaveViewMat = GetCameraViewMatrix();
-
-	// カメラのビュー行列をEntityのローカル座標でのものに設定
-	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
-
-	static const Vector3D vPosOrign = Vector3D( 0,0,0 );
-
-	// スクリーン上のEntity位置を計算
-	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( vPosOrign.toVECTOR() );
-	assert( EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0 );
-
-	// デバック
-	DBG_m_vEntiPosOnScreen.x = EntiPosForScreen.x;
-	DBG_m_vEntiPosOnScreen.y = EntiPosForScreen.y;
-
-	// スクリーン上にスティックの傾き方向の位置を求める
-	Vector3D vStickTile = vPosOrign;
-	vStickTile.x = pEntity->m_pVirCntrl->m_vStickL.x;
-	vStickTile.y = -pEntity->m_pVirCntrl->m_vStickL.y;
-	Vector3D StickTiltPosForScreen = EntiPosForScreen + vStickTile;
-
-	// スティックの傾き方向の位置Entityの地平面に投影するした位置を求める
-	StickTiltPosForScreen.z = 0.0;
-	Vector3D BgnPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
-	StickTiltPosForScreen.z = 1.0;
-	Vector3D EndPos = ConvScreenPosToWorldPos( StickTiltPosForScreen.toVECTOR() );
-	Vector3D vCrossPos;
-	int rtn = calcCrossPointWithXZPlane( BgnPos, EndPos, vCrossPos ); // これは、厳密にはキャラクタ水平面ではないので、ジャンプすると不正確。修正が必要★
-	vCrossPos.y = 0; // 安易な対処法
-
-	// 操舵力の決定
-	Vector3D vSteeringForceDir = ( vCrossPos ).normalize();
-	if( rtn < 0 )
-	{ // カメラの向きの反対側で地平面と交わる場合
-		vSteeringForceDir *= -1; // 反対向きに設定
-	}
-
-	// カメラのビュー行列を元に戻す
-	SetCameraViewMatrix( MSaveViewMat );
-
-
-	// 大きさはオリジナルのスティックの傾きを使用
-	Vector3D vStickTiltFromCam = pEntity->m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
-	//Vector3D vStickTiltFromCam = vSteeringForceDir;
-
-	// デバック用に記憶
-	DBG_m_vStickPos = 10 * vStickTiltFromCam + pEntity->Pos();
-
-	// ★ For DBG
-
-	// 17:16 Coding完
-	// 17:29 残念、動かない
-
-	// 17:43 デバック完
+	// スティックの傾きの方向からEntityの移動方向を計算する
+	Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
 
 	// * スティックの傾き（=Input）から、終速度を計算
 	Vector3D TerminalVel = MaxVelocity * vStickTiltFromCam;
@@ -774,19 +559,19 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 		eta = ViscousRsisInert; // 慣性推進時
 	}
 	
-	//eta = ViscousRsisAccel; // ★DBG
-
-	
-	// * $F_{Drive}$ が決まる。
+	// * 推進力の決定
 	Vector3D vSteeringForce = eta * TerminalVel;
-	
+	Vector3D vArrangeSteeringForce = SensitivityCoefForTurning * vSteeringForce;
+
+	// DBG
+	DBG_m_vSteeringForce = vSteeringForce;
 
 	// ##### 旋回時の挙動改善
 
-	m_dCentripetalForce = 0; // 向心力をクリア
-	
-	if(pEntity->Velocity().len() < 25.0)
+	if( pEntity->m_eMoveLevel == PlayerCharacterEntity::MvLvWalking )
+	//if( pEntity->Velocity().sqlen() < ThresholdSpeedRunToWark )
 	{ // 速度が小さ場合は旋回挙動を適用しない
+		
 		Vector3D Force = vSteeringForce - eta * (pEntity->Velocity()) ;
 		PhyVar.Force = Force ;
 
@@ -796,20 +581,24 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	else
 	{
 		// 向心力の決定
+		m_dCentripetalForce = 0; // 向心力をクリア
+
+		// 推進力の計算
+		//   スティックが進行方向とは逆方向の場合は推進力 FDrive を切返しの動作の開始条件である
+		//   速度閾値以上にならないように調整
 		double DriveForce = vSteeringForce.len();
+
+		if( vStickTiltFromCam * pEntity->Heading() <= 0 )
+		{
+			double ThresholdForce = eta * ThresholdSpeedRunToWark * 0.8 ;
+			if( DriveForce > ThresholdForce )
+			{
+				DriveForce = ThresholdForce;
+			}
+		}
+
 		Vector3D vDriveForce = DriveForce * pEntity->Heading();
 	
-		double CentripetalForce = (SensitivityCoefForTurning * vSteeringForce) * (pEntity->Side());
-		if( fabs(CentripetalForce) > MaxCentripetalForce )
-		{
-			double sgn =  (double)( (CentripetalForce>0) - (CentripetalForce<0) );
-			CentripetalForce = sgn * MaxCentripetalForce;
-		}
-		//CentripetalForce = MaxCentripetalForce; //★DBG
-
-		m_dCentripetalForce = CentripetalForce; // 向心力を記憶
-	
-
 		// 次のタイムステップの速度・位置を計算
 		// * ルンゲクッタ法適用
 		// * 旋回運動が不安定なのを解消したいだけなので、
@@ -821,28 +610,28 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 		Vector3D vUpper = pEntity->Uppder();
 
 		// K1の計算
-		vL = calculateForce( vVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vL = calculateForce( vVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
 		vK = vVel;
 		vSumK = vK;
 		vSumL = vL;
 
 		// K2の計算
 		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += 2*vK;
 		vSumL += 2*vL;
 
 		// K3の計算
 		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += 2*vK;
 		vSumL += 2*vL;
 
 		// K4の計算
 		vNxtVel = vVel+pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, DriveForce, CentripetalForce, eta )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += vK;
 		vSumL += vL;
@@ -863,17 +652,37 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 }
 
 // SurfaceMove::Calculateの補助関数
+// 2016/09/04
+//   走り始めにEntity向きが振動する対策として、
+//   CentripetalForce　ではなく、vSteeringForce を渡し、
+//   その都度 CentripetalForce を計算する用に変更。
 Vector3D SurfaceMove::calculateForce( 
 		Vector3D vVel, 
 		Vector3D vUpper,
+		Vector3D vArrangeSteeringForce,
 		double DriveForce,
-		double CentripetalForce,
-		double eta )
+		double eta,
+		double &outCentripetalForce
+		)
 {
 	// Entity速度(Input)から操舵力の向きを再計算
 	Vector3D vHeading = vVel.normalize();
 	Vector3D vSide = VCross( vHeading.toVECTOR(), vUpper.toVECTOR() );
+
+	// vArrangeSteeringForce から CentripetalForce を計算
+	double CentripetalForce = vArrangeSteeringForce * vSide ;
+	// カットオフ処理
+	if( fabs(CentripetalForce) > MaxCentripetalForce )
+	{
+		double sgn =  (double)( (CentripetalForce>0) - (CentripetalForce<0) );
+		CentripetalForce = sgn * MaxCentripetalForce;
+	}
+
+	// 最終的な操舵力を計算
 	Vector3D vSteering = DriveForce * vHeading + CentripetalForce * vSide;
+
+	// 計算した向心力を格納
+	outCentripetalForce = CentripetalForce;
 
 	// 粘性モデルに従いEntityに働く力を計算し返却
 	return vSteering - eta * vVel ;
@@ -893,10 +702,6 @@ void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 	static Smoother<double> BankAngleSmoother( 6, 0 );  // 円滑化
 	double bankangle = atan2( m_dCentripetalForce, LikeGravity ); // *重力と遠心力によりバンク角の計算
 	pEntity->m_pAnimMgr->setBankAngle( BankAngleSmoother.Update(-bankangle) );
-	/*
-	double bankangle = atan2( m_dCentripetalForce, LikeGravity ); // *重力と遠心力によりバンク角の計算
-	pEntity->m_pAnimMgr->setBankAngle( -bankangle );
-	*/
 
 	// Running と Warking で再生ピッチがわける（地面の歩き方が自然になるよう）
 	if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvRunning )		
@@ -908,17 +713,10 @@ void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 		pEntity->m_pAnimMgr->setPitch((float)((14.0/12.0)*speed)); // ハードコーディングはマズイのだ
 	}
 
-	// デバック用
-	// （Entity平面上に投影した）スティックの傾きの位置を描画
-	static PlaneRing RingIns( 
-		0.6, 0.4, 16, 
-		GetColorU8(255,   0,   0, 0 ),
-		GetColorU8(255, 255, 255, 0 ) );
-	RingIns.setCenterPos( DBG_m_vStickPos );
-	RingIns.Render(); 
+	// ###### デバック用出力 
 
-	// スクリーン上のEntity位置を描画
-	DrawCircle( (int)DBG_m_vEntiPosOnScreen.x, (int)DBG_m_vEntiPosOnScreen.y, 5, GetColor(0,255,0) );
+	// （Entity平面上に投影した）スティックの傾きの位置を描画
+	pEntity->DBG_renderMovementDirFromStick();
 
 	// 向心力出力
 	//行数
@@ -929,14 +727,15 @@ void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 	DrawFormatString( 0, width*colmun, 0xffffff, "m_dCentripetalForce:%8f", m_dCentripetalForce ); 
 	colmun++;
 
-	DrawFormatString( 0, width*colmun, 0xffffff, "EntiPosOnScreen:%8f, %8f", DBG_m_vEntiPosOnScreen.x, DBG_m_vEntiPosOnScreen.y ); 
-	colmun++;
-
 	// スティックの傾き情報出力
 	Vector2D vStickTile;
 	vStickTile.x = pEntity->m_pVirCntrl->m_vStickL.x;
 	vStickTile.y = -pEntity->m_pVirCntrl->m_vStickL.y;
 	DrawFormatString( 0, width*colmun, 0xffffff, "EntiPosOnScreen:%8f, %8f", vStickTile.x, vStickTile.y ); 
+	colmun++;
+
+	// Entityのへ操舵力を出力
+	DrawFormatString( 0, width*colmun, 0xffffff, "vSteeringForce:%8f, %8f", DBG_m_vSteeringForce.x, DBG_m_vSteeringForce.z ); 
 	colmun++;
 
 
@@ -947,3 +746,305 @@ void SurfaceMove::Exit( PlayerCharacterEntity* pEntity )
 	// 遠心力による姿勢の傾きの解除
 	pEntity->m_pAnimMgr->setBankAngle( 0.0 );
 }
+
+
+// #### OneEightyDegreeTurn ステートのメソッド ########################################################################
+
+// ##### 定数
+const double OneEightyDegreeTurn::MaxVelocity      = 65.0;  // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+//const double OneEightyDegreeTurn::ViscousRsisTurn  = 80.0;  // 粘性抵抗係数
+const double OneEightyDegreeTurn::ViscousRsisTurn   = 40.0;  // 粘性抵抗係数
+const double OneEightyDegreeTurn::ViscousRsisBreak  = 25.0;  // 粘性抵抗係数
+//const double OneEightyDegreeTurn::TurningDulation  = 7.0/(OneEightyDegreeTurn::ViscousRsisTurn);
+const double OneEightyDegreeTurn::TurningDulation  = 0.3;
+const double OneEightyDegreeTurn::SlowDownEnough   = 5.0;   // SurfaceMove→停止 の速度閾値と同じにしておく
+const double OneEightyDegreeTurn::InnerProductForStartTurn = 0.0; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
+
+
+OneEightyDegreeTurn* OneEightyDegreeTurn::Instance()
+{
+	static OneEightyDegreeTurn instance;
+	return &instance;
+}
+
+void OneEightyDegreeTurn::Enter( PlayerCharacterEntity* pEntity )
+{
+	// サブステートの初期化
+	m_eSubState = SUB_BREAKING;
+
+	// 切返し動作を開始した時の速度方向を記録
+	m_vVelDirBeginning = pEntity->Velocity().normalize();
+
+	// アニメーションの設定
+	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Breaking, 0.0 ); // ブレーキのアニメーションを設定
+	pEntity->m_pAnimMgr->setPitch( 20.0 );
+
+}
+
+void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
+{
+	// m_bJmpChrgUsageFlg OFF
+	static const double JmpChrgWaitTime = 0.1; // ジャンプ開始までの待ち時間
+
+	// m_bJmpChrgUsageFlg ON
+	static const double JmpChrgMaxTime = 0.3;  // ジャンプチャージの最大時間
+
+	// #### ジャンプ関連
+	if( pEntity->m_bJmpChrgUsageFlg )
+	{ // m_bJmpChrgUsageFlg ON (ボタンの押し込み時間に応じで、ジャンプ力調整する機能)
+		if( pEntity->m_bJmpChrgFlg )
+		{ // ジャンプチャージ中
+			// ButA が離された or ジャンプチャージ の最大時間を超過した
+			if( !pEntity->m_pVirCntrl->ButA.isPushed() 
+				|| pEntity->getStopWatchTime() > JmpChrgMaxTime )
+			{
+				// → StateをJumpに更新
+				//（Jump State のEnterの中でタイマ値からジャンプのサイズを計算する）
+				pEntity->ChangeState( Jump::Instance() );
+			}
+
+		}
+		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
+		{ // ButA がこの瞬間に押された
+			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
+			pEntity->StopWatchOn();        // タイマーセット
+		}
+	}
+	else
+	{ // m_bJmpChrgUsageFlg OFF
+		if( pEntity->m_bJmpChrgFlg )
+		{ // ジャンプチャージ中
+			// ButA が離された or ジャンプチャージ の最大時間を超過した
+			if( pEntity->getStopWatchTime() > JmpChrgWaitTime )
+			{
+				// StateをJumpに更新
+				pEntity->ChangeState( Jump::Instance() );
+			}
+
+		}
+		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
+		{ // ButA がこの瞬間に押された
+			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
+			pEntity->StopWatchOn();        // タイマーセット
+
+			// ジャンプ前のアニメーションを設定
+			//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_PreMotion, 5.0, false );
+			//float AnimTotalTime = pEntity->m_pAnimMgr->getMotionTotalTime(); // JmpChrgWaitTime 時間内にアニメーション再生が完了するように再生ピッチを調整
+			//float PlayPitch = (float)(AnimTotalTime/JmpChrgWaitTime);
+			//pEntity->m_pAnimMgr->setPitch(PlayPitch);
+		}
+	}
+	
+	// #### ブレーキ中にキャンセル
+	if( m_eSubState == SUB_BREAKING )
+	{ // ブレーキ状態
+
+		// スティックの傾き方向が（切返し開始時の）速度方向に倒されたら（戻されたら）、 
+		// 切返しをキャンセルして走りの状態に戻る。
+		Vector3D MoveDir = pEntity->calcMovementDirFromStick().normalize();
+		if( m_vVelDirBeginning*MoveDir > InnerProductForStartTurn )
+		{
+			pEntity->ChangeState( SurfaceMove::Instance() );
+			return ;
+		}
+
+		// Substateの[Enter]でサブステートの評価（runかworkか）を行うこと★
+
+	}
+
+	// #### ブレーキ・サブ状態から切返し・サブ状態への遷移判定
+	static const double SqSlowDownEnough = SlowDownEnough * SlowDownEnough;
+
+	if( m_eSubState == SUB_BREAKING )
+	{ // ブレーキ状態
+
+		// 十分に減速したか？
+		if( pEntity->Velocity().sqlen() < SqSlowDownEnough )
+		{
+			// スティックの傾きが 0 だった場合は、その後に切返しをキャンセルして 停止の状態に遷移。
+			if( pEntity->m_pVirCntrl->m_dTiltQuantStickL==0 )
+			{ 
+				pEntity->ChangeState( Standing::Instance() );
+				return ;
+			}
+
+			// 切返し状態に遷移
+			m_eSubState = SUB_TURNING;
+
+			// タイマオン
+			pEntity->StopWatchOn();
+
+			// 切返し動作のアニメーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turning );
+
+			// TurningDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
+			//float AnimTotalTime = pEntity->m_pAnimMgr->getMotionTotalTime(); 
+			float AnimTotalTime = 41 - 14; //  getMotionTotalTime だと、切り出した場合のアニメーションの再生時間を取得できない
+			float PlayPitch = (float)(AnimTotalTime/TurningDulation) + 1.0;
+			pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+			return ;
+
+		}
+
+	}
+
+	// #### 切返し・サブ状態がタイマ満了になったらSurfaceMove Stateに遷移
+	if( m_eSubState == SUB_TURNING )
+	{ // 切返し状態
+		if( pEntity->getStopWatchTime() > TurningDulation )
+		{
+			pEntity->ChangeState( SurfaceMove::Instance() );
+
+			return;
+		}
+	}
+
+}
+
+void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar )
+{
+	// ブレーキ力、切返し時の推進力は、
+	// Entityの終速度と、粘性抵抗係数（=終速度への到達時間）より計算する。
+
+	PhyVar.init(); // 初期化
+
+	// サブ・ステートにより動作をわける
+	if( m_eSubState == SUB_BREAKING )
+	{ // ブレーキ状態
+		// 速度が十分小さくなるまでブレーキをかける。
+
+		// ブレーキ力を計算
+		Vector3D vBreakingForce = -1 * ViscousRsisBreak * MaxVelocity * m_vVelDirBeginning;
+
+		// 粘性抵抗モデルからEntityに働く力を計算
+		PhyVar.Force = vBreakingForce - ViscousRsisBreak * (pEntity->Velocity());
+
+		// 向きを固定
+		PhyVar.Heading = m_vVelDirBeginning;
+		PhyVar.UseHeading = true;
+
+		return;
+
+	}
+	else if( m_eSubState == SUB_TURNING )
+	{ // 切返し状態
+		// 切り返しの方向に加速する。同時に向きを切返し方向へ回転。
+
+		// ##### Entityに働く力を計算
+
+		// スティックの傾きの方向からEntityの移動方向を計算する
+		Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
+		
+		Vector3D vTurnDestination; // 回転して向ける方向
+
+		// 取得したスティックの傾きの方向が 0 でなければその方向を規格化して設定。
+		// 0 の場合は、切返し動作に入った時の進行方向と真逆の方向にセット
+		if( vStickTiltFromCam.sqlen() > 0 )
+		{
+			vTurnDestination = vStickTiltFromCam.normalize();
+		}
+		else
+		{
+			vTurnDestination = -1 * m_vVelDirBeginning;
+		}
+
+		// * スティックの傾き（=Input）から、終速度を計算
+		Vector3D TerminalVel = MaxVelocity * vTurnDestination;
+
+		// 切返し時の推進力を計算
+		Vector3D vTurnningForce = ViscousRsisTurn * TerminalVel;
+
+		// 粘性抵抗モデルからEntityに働く力を計算
+		PhyVar.Force = vTurnningForce - ViscousRsisTurn * (pEntity->Velocity());
+
+		// ##### Entity向きの回転量を計算
+		// * TurningDulation で向きの回転が完了するように、回転速度を調整
+
+		// 現在のHeadingと、目的の方向のベクトルのなす角を計算
+		double angle = atan2( 
+			pEntity->Side()    * vTurnDestination, 
+			pEntity->Heading() * vTurnDestination );
+
+		// 得られた角度が負値の場合は、逆向きからの角度に変換（これにより、回転方向が固定される）
+		if( angle < 0 )
+		{
+			angle = 2*DX_PI_F + angle;
+		}
+
+		// 現在の回転位置と、回転完了までの残り時間より、今回のタイムステップにおける回転量を計算
+		double RemainingTime = TurningDulation - pEntity->getStopWatchTime();
+		double RotQuant;
+		if( RemainingTime > pEntity->TimeElaps() )
+		{
+			RotQuant = -angle * pEntity->TimeElaps() / ( RemainingTime + pEntity->TimeElaps() );
+		}
+		else
+		{
+			RotQuant = -angle;
+		}
+		// ↑RemainingTime ～ 0 で挙動がおかしくなる可能性がある
+
+		// MGetRotAxisをつかい、現在のHeadinをUpperを軸に、今回のタイムステップにおける回転量だけ回転させる
+		MATRIX RotMat = MGetRotAxis( pEntity->Uppder().toVECTOR(), RotQuant );
+		Vector3D vNewHedding = VTransform( pEntity->Heading().toVECTOR(), RotMat );
+
+		// 新しいHeadingベクトルを設定し完了
+		PhyVar.Heading = vNewHedding;
+		PhyVar.UseHeading = true;
+
+		DBG_m_dAngle = angle;
+		DBG_m_dRemainingTime = RemainingTime;
+
+		return;
+
+	}
+	else{ assert(false); }
+
+	
+	return;
+}
+
+void OneEightyDegreeTurn::Render(PlayerCharacterEntity* pEntity )
+{
+
+	// ###### デバック用出力 
+
+	// （Entity平面上に投影した）スティックの傾きの位置を描画
+	pEntity->DBG_renderMovementDirFromStick();
+
+	//行数
+	int colmun= 0;
+	int width = 15;
+
+	// サブ状態を描画
+	string SubStateString;
+	switch( m_eSubState )
+	{
+	case OneEightyDegreeTurn::SUB_BREAKING:
+		SubStateString = "SUB_BREAKING";
+		break;
+	case OneEightyDegreeTurn::SUB_TURNING:
+		SubStateString = "SUB_TURNING";
+		break;
+	}
+
+	DrawFormatString( 0, width*colmun, 0xffffff, "SubState:%s", SubStateString.c_str() ); 
+	colmun++;
+
+	
+	DrawFormatString( 0, width*colmun, 0xffffff, "Angle:%f", DBG_m_dAngle ); 
+	colmun++;
+
+	DrawFormatString( 0, width*colmun, 0xffffff, "RemainingTime:%f", DBG_m_dRemainingTime ); 
+	colmun++;
+
+
+};
+
+void OneEightyDegreeTurn::Exit( PlayerCharacterEntity* pEntity )
+{
+	// 遠心力による姿勢の傾きの解除
+	pEntity->m_pAnimMgr->setBankAngle( 0.0 );
+}
+
