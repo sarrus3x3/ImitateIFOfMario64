@@ -335,12 +335,9 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
 	pAnimUnq->m_fAnimStartTime      = 0.0f; 
-	pAnimUnq->m_fAnimEndTime        = 14.0f; 
-	//pAnimUnq->m_bCorrectionToCenter = true;
-	///pAnimUnq->m_vFixCenterPosLocal += Vector3D( -0.01, -5.68, -1.39 );
-	//pAnimUnq->m_vFixCenterPosLocal += Vector3D( -0.01, -5.68, -0.39 );
-	//pAnimUnq->m_bCorrectionToCenterButY = true;
-	pAnimUnq->m_fUniquePlayPitch = (float)3.0;
+	//pAnimUnq->m_fAnimEndTime        = 10.0f; 
+	pAnimUnq->m_fAnimEndTime        = 20.0f; 
+	//pAnimUnq->m_fUniquePlayPitch = (float)1.8;
 
 	// --------- Turning --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
@@ -349,9 +346,10 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion   = 4;
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
-	pAnimUnq->m_fAnimStartTime      = 14.0f; 
+	//pAnimUnq->m_fAnimStartTime      = 10.0f; 
+	pAnimUnq->m_fAnimStartTime      = 20.0f; 
 	pAnimUnq->m_fAnimEndTime        = 41.0f; 
-	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
+	//pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
 
 	// --------- BreakAndTurn --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAndTurn];

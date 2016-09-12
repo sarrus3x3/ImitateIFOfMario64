@@ -72,6 +72,9 @@ struct AnimPlayBackInfo
 
 	// アニメーション再生情報
 	float m_MotionTotalTime;   // モーションの総再生時間
+		// * アニメーション切出しONの場合は、AnimUniqueInfo.m_fAnimEndTimeの値が設定される。
+		//   切出しアニメーションの再生時間はm_fAnimLengthに格納する
+	
 	float m_CurPlayTime;       // 現在の再生時間
 	float m_fBlendRate;        // アニメーションのブレンド率（ 0.0 ～ 1.0 の間 ）
 	int   m_iPlayCount;        // （setされてからの）アニメーションの再生回数
@@ -79,7 +82,7 @@ struct AnimPlayBackInfo
 	bool  m_bFinished;         // アニメーション終了フラグ アニメーションが総再生時間まで再生された場合など。ループするアニメーションの場合は ON にならない。
 	bool  m_bRemoved;          // アニメーション破棄フラグ ONならアニメーション再生しない。アニメーションをデタッチするタイミングで ON にしている
 	Vector3D m_vCorrectionVec; // m_CurAttachedMotion ON の場合のモーション位置の補正ベクトル（PlayOneAnimで計算され、PlaySubでブレンド考慮して実際の位置補正を実行する。）
-
+	float m_fAnimLength;       // このアニメーションの再生にかかる時間
 
 	// 初期化メソッド
 	void init()
@@ -198,12 +201,17 @@ public:
 	// http://qiita.com/D-3/items/9930591bb78df544c066
 	void DiscardReservedAnim(){ queue<ArgumentOfSetAnim>().swap(m_qAnimReservationQueue); };
 
+	// ----- m_pCurAnimPlayInfoのアニメーション名を取得
+	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };
+
+	// ----- m_pCurAnimPlayInfoの再生にかかる時間を取得
+	float getCurAnimLength(){ return m_pCurAnimPlayInfo->m_fAnimLength; };
+
 	// #### 補助メソッド ####
 	void  PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head );
 	float CurPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }
 	void  DrawAllow3D( Vector3D cnt, Vector3D heading ); // 矢印を描画
 	float getMotionTotalTime(){ return m_pCurAnimPlayInfo->m_MotionTotalTime; }
-	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; }
 	
 // ############ 物理演算（髪の毛を揺らすとか）関連 ############
 public:

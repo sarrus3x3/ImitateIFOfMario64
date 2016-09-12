@@ -151,12 +151,14 @@ void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, Play
 	{ // モーション切出し OFF
 		pAnimInfo->m_MotionTotalTime = MV1GetAttachAnimTotalTime( m_iModelHandle, pAnimInfo->m_AttachIndex ) ;	
 		pAnimInfo->m_CurPlayTime     = pAnimUnq->m_fAnimStartTime;
+		pAnimInfo->m_fAnimLength     = pAnimInfo->m_MotionTotalTime - pAnimUnq->m_fAnimStartTime;
 	}
 	else
 	{ // モーション切出し ON
 		// PlaySub の仕組みから、これで切出し実現できるはず
 		pAnimInfo->m_CurPlayTime     = pAnimUnq->m_fAnimStartTime;
 		pAnimInfo->m_MotionTotalTime = pAnimUnq->m_fAnimEndTime;
+		pAnimInfo->m_fAnimLength     = pAnimUnq->m_fAnimEndTime - pAnimUnq->m_fAnimStartTime;
 	}
 };
 

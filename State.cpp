@@ -68,6 +68,8 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreakingAfter);
 		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing, 10.0 );
+		pEntity->m_pAnimMgr->setPitch(20.0); // ピッチを調整
+
 	}
 	else
 	{
@@ -334,6 +336,15 @@ const double SurfaceMove::ThresholdSticktiltRunToWark = 0.6;   // Running<->Wark
 
 const double SurfaceMove::MaxCentripetalForce = 500.0*10;   // 旋回時の最大向心力
 
+const double SurfaceMove::MaxVelocity      = 65.0; // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+
+const double SurfaceMove::ViscousRsisInert = 20.0;  // 慣性推進時の粘性抵抗係数
+const double SurfaceMove::ViscousRsisAccel = 20.0;  // 加速時の粘性抵抗係数
+// 2016/08/18
+// 走り始め直後に進行方向を反転させた場合に切返し動作を行わないようにチューニング
+// 慣性推進時と加速時の粘性抵抗を同じにする。
+// 切返し動作時の加速力に合せて値を小さくチューニングした
+
 
 SurfaceMove* SurfaceMove::Instance()
 {
@@ -526,15 +537,6 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar )
 {
-	// 物理定数を定義
-	static const double MaxVelocity      = 65.0; // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
-	
-	static const double ViscousRsisInert = 40.0;  // 慣性推進時の粘性抵抗係数
-	static const double ViscousRsisAccel = 40.0;  // 加速時の粘性抵抗係数
-	// 2016/08/18
-	// 走り始め直後に進行方向を反転させた場合に切返し動作を行わないようにチューニング
-	// 慣性推進時と加速時の粘性抵抗を同じにする。
-	// 切返し動作時の加速力に合せて値を小さくチューニングした
 
 	static const double sqMaxCentripetalForce = MaxCentripetalForce*MaxCentripetalForce;
 
@@ -751,14 +753,19 @@ void SurfaceMove::Exit( PlayerCharacterEntity* pEntity )
 // #### OneEightyDegreeTurn ステートのメソッド ########################################################################
 
 // ##### 定数
-const double OneEightyDegreeTurn::MaxVelocity      = 65.0;  // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
-//const double OneEightyDegreeTurn::ViscousRsisTurn  = 80.0;  // 粘性抵抗係数
-const double OneEightyDegreeTurn::ViscousRsisTurn   = 40.0;  // 粘性抵抗係数
-const double OneEightyDegreeTurn::ViscousRsisBreak  = 25.0;  // 粘性抵抗係数
-//const double OneEightyDegreeTurn::TurningDulation  = 7.0/(OneEightyDegreeTurn::ViscousRsisTurn);
-const double OneEightyDegreeTurn::TurningDulation  = 0.3;
-const double OneEightyDegreeTurn::SlowDownEnough   = 5.0;   // SurfaceMove→停止 の速度閾値と同じにしておく
+//const double OneEightyDegreeTurn::MaxVelocity      = 65.0;  // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+//const double OneEightyDegreeTurn::ViscousRsisTurn   = 40.0;  // 粘性抵抗係数
+//const double OneEightyDegreeTurn::ViscousRsisBreak  = 25.0;  // 粘性抵抗係数
+const double OneEightyDegreeTurn::TurningDulation  = 0.4;
+const double OneEightyDegreeTurn::BrakingDulation  = 0.2;   // ブレーキ状態の継続時間
+
+//const double OneEightyDegreeTurn::SlowDownEnough   = 5.0;   // SurfaceMove→停止 の速度閾値と同じにしておく
 const double OneEightyDegreeTurn::InnerProductForStartTurn = 0.0; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
+
+const double OneEightyDegreeTurn::TurningForceSize = 65.0 * 90.0 ;  // 切出し時の加速力大きさ
+const double OneEightyDegreeTurn::BrakingForceSize = 65.0 * 10.0 ;  // ブレーキ中の制動力の大きさ
+// 問題は、この大きさをどのように決めるか？？
+// 粘性抵抗 * 最高速度 が加速力なのでこれに合わせる
 
 
 OneEightyDegreeTurn* OneEightyDegreeTurn::Instance()
@@ -775,9 +782,18 @@ void OneEightyDegreeTurn::Enter( PlayerCharacterEntity* pEntity )
 	// 切返し動作を開始した時の速度方向を記録
 	m_vVelDirBeginning = pEntity->Velocity().normalize();
 
+	// ブレーキ状態のタイマオン
+	pEntity->StopWatchOn();
+
 	// アニメーションの設定
 	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Breaking, 0.0 ); // ブレーキのアニメーションを設定
-	pEntity->m_pAnimMgr->setPitch( 20.0 );
+	//pEntity->m_pAnimMgr->setPitch( 20.0 );
+
+	// BrakingDulation 時間内にアニメーション再生が完了するように再生ピッチを調整する
+	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
+	//float PlayPitch = (float)(AnimTotalTime/BrakingDulation) + 1.0;
+	float PlayPitch = (float)(AnimTotalTime/BrakingDulation) ; // +1.0を消してみる。なんで盛ってあるんだろう？
+	pEntity->m_pAnimMgr->setPitch(PlayPitch);
 
 }
 
@@ -853,13 +869,12 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	}
 
 	// #### ブレーキ・サブ状態から切返し・サブ状態への遷移判定
-	static const double SqSlowDownEnough = SlowDownEnough * SlowDownEnough;
 
 	if( m_eSubState == SUB_BREAKING )
 	{ // ブレーキ状態
 
-		// 十分に減速したか？
-		if( pEntity->Velocity().sqlen() < SqSlowDownEnough )
+		// ブレーキ状態の継続時間が、BrakingDulation を満了したら、切返し状態に遷移する。
+		if( pEntity->getStopWatchTime() > BrakingDulation )
 		{
 			// スティックの傾きが 0 だった場合は、その後に切返しをキャンセルして 停止の状態に遷移。
 			if( pEntity->m_pVirCntrl->m_dTiltQuantStickL==0 )
@@ -874,13 +889,16 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			// タイマオン
 			pEntity->StopWatchOn();
 
+			// 切出し動作で"発射"する方として、切出し動作開始した時のスティックの向き（規格化）に設定
+			m_vTurnDestination = pEntity->calcMovementDirFromStick().normalize();
+
 			// 切返し動作のアニメーションを再生
 			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turning );
 
 			// TurningDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
-			//float AnimTotalTime = pEntity->m_pAnimMgr->getMotionTotalTime(); 
-			float AnimTotalTime = 41 - 14; //  getMotionTotalTime だと、切り出した場合のアニメーションの再生時間を取得できない
-			float PlayPitch = (float)(AnimTotalTime/TurningDulation) + 1.0;
+			float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
+			//float PlayPitch = (float)(AnimTotalTime/TurningDulation) + 1.0;
+			float PlayPitch = (float)(AnimTotalTime/TurningDulation) ;
 			pEntity->m_pAnimMgr->setPitch(PlayPitch);
 
 			return ;
@@ -915,10 +933,10 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		// 速度が十分小さくなるまでブレーキをかける。
 
 		// ブレーキ力を計算
-		Vector3D vBreakingForce = -1 * ViscousRsisBreak * MaxVelocity * m_vVelDirBeginning;
+		Vector3D vBreakingForce = -1 * BrakingForceSize * m_vVelDirBeginning;
 
 		// 粘性抵抗モデルからEntityに働く力を計算
-		PhyVar.Force = vBreakingForce - ViscousRsisBreak * (pEntity->Velocity());
+		PhyVar.Force = vBreakingForce - SurfaceMove::ViscousRsisAccel * (pEntity->Velocity());
 
 		// 向きを固定
 		PhyVar.Heading = m_vVelDirBeginning;
@@ -936,35 +954,22 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		// スティックの傾きの方向からEntityの移動方向を計算する
 		Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
 		
-		Vector3D vTurnDestination; // 回転して向ける方向
-
-		// 取得したスティックの傾きの方向が 0 でなければその方向を規格化して設定。
-		// 0 の場合は、切返し動作に入った時の進行方向と真逆の方向にセット
-		if( vStickTiltFromCam.sqlen() > 0 )
-		{
-			vTurnDestination = vStickTiltFromCam.normalize();
-		}
-		else
-		{
-			vTurnDestination = -1 * m_vVelDirBeginning;
-		}
-
 		// * スティックの傾き（=Input）から、終速度を計算
-		Vector3D TerminalVel = MaxVelocity * vTurnDestination;
+		Vector3D TerminalVel = SurfaceMove::MaxVelocity * m_vTurnDestination;
 
 		// 切返し時の推進力を計算
-		Vector3D vTurnningForce = ViscousRsisTurn * TerminalVel;
+		Vector3D vTurnningForce = SurfaceMove::ViscousRsisAccel * TerminalVel;
 
 		// 粘性抵抗モデルからEntityに働く力を計算
-		PhyVar.Force = vTurnningForce - ViscousRsisTurn * (pEntity->Velocity());
+		PhyVar.Force = vTurnningForce - SurfaceMove::ViscousRsisAccel * (pEntity->Velocity());
 
 		// ##### Entity向きの回転量を計算
 		// * TurningDulation で向きの回転が完了するように、回転速度を調整
 
 		// 現在のHeadingと、目的の方向のベクトルのなす角を計算
 		double angle = atan2( 
-			pEntity->Side()    * vTurnDestination, 
-			pEntity->Heading() * vTurnDestination );
+			pEntity->Side()    * m_vTurnDestination, 
+			pEntity->Heading() * m_vTurnDestination );
 
 		// 得られた角度が負値の場合は、逆向きからの角度に変換（これにより、回転方向が固定される）
 		if( angle < 0 )

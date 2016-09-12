@@ -127,12 +127,19 @@ private:
 	SurfaceMove(const SurfaceMove&);
 	SurfaceMove& operator=(const SurfaceMove&);
 
-	// ##### 定数
+	// ##### グローバル定数
 	static const double ThresholdSpeedRunToWark;  // Running<->Warking の速度の閾値（平方値）
 	static const double ThresholdSticktiltRunToWark;   // Running<->Warking のスティック傾きの閾値
 	static const double MaxCentripetalForce;   // 旋回時の最大向心力
+	static const double ViscousRsisInert;  // 慣性推進時の粘性抵抗係数
 
-	// メンバ
+public:
+	static const double MaxVelocity; // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+	static const double ViscousRsisAccel;  // 加速時の粘性抵抗係数
+
+
+	// ##### メンバ変数
+private:
 	double m_dCentripetalForce; // 向心力の大きさ （遠心力によるバンク演出のために使用）
 
 public:
@@ -175,16 +182,24 @@ private:
 	OneEightyDegreeTurn& operator=(const OneEightyDegreeTurn&);
 
 	// ##### 定数
-	static const double SlowDownEnough;    // この速度以下になったらブレーキ状態→切返し状態に移行する
+	//static const double SlowDownEnough;    // この速度以下になったらブレーキ状態→切返し状態に移行する
 	static const double TurningDulation;   // 切返し状態の継続時間
-	static const double MaxVelocity;       // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
-	static const double ViscousRsisTurn;   // （切返し時の）粘性抵抗係数
-	static const double ViscousRsisBreak;  // （ブレーキ時の）粘性抵抗係数
+	static const double BrakingDulation;   // ブレーキ状態の継続時間
+
+	static const double TurningForceSize;  // 切出し時の加速力大きさ
+	static const double BrakingForceSize;  // ブレーキ中の制動力の大きさ
+
+
+	//static const double MaxVelocity;       // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
+	//static const double ViscousRsisTurn;   // （切返し時の）粘性抵抗係数
+	//static const double ViscousRsisBreak;  // （ブレーキ時の）粘性抵抗係数
+
 	static const double InnerProductForStartTurn; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
 
 
 	// メンバ
-	Vector3D m_vVelDirBeginning; // 切返し動作開始した時の速度方向
+	Vector3D m_vVelDirBeginning; // OneEightyDegreeTurnにEnterした時の速度方向
+	Vector3D m_vTurnDestination; // 切出し動作で"発射"する方向。切出し動作開始した時のスティックの向き（規格化）が設定
 
 	// サブ状態
 	enum SubStateID
