@@ -133,6 +133,9 @@ void PlayerCharacterEntity::Render()
 	m_pAnimMgr->Play(this);
 };
 
+// スティック傾きから進行方向の計算方式の変更
+//#define SAVE_ANGLE_VARIATION
+
 Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 {
 	static Vector3D vStickTiltFromCam;
@@ -154,6 +157,10 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
 
 	static const Vector3D vPosOrign = Vector3D( 0,0,0 );
+
+
+// 画面上のスティックの傾きをキャラクタ平面に投影し、進行方向を決定する方式
+#ifndef SAVE_ANGLE_VARIATION
 
 	// スクリーン上のEntity位置を計算
 	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos( vPosOrign.toVECTOR() );
@@ -180,6 +187,17 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 	{ // カメラの向きの反対側で地平面と交わる場合
 		vSteeringForceDir *= -1; // 反対向きに設定
 	}
+
+#endif
+
+// スティックの上方向のみキャラクタ平面へ投影した方向と合せて、
+// スティックの傾きをキャラクタ平面へ剛体変換して進行方向を決定する方式
+#ifdef SAVE_ANGLE_VARIATION
+	// 
+
+
+#endif
+
 
 	// カメラのビュー行列を元に戻す
 	SetCameraViewMatrix( MSaveViewMat );

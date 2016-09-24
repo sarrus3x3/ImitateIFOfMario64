@@ -6,38 +6,6 @@
 
 static const float ROTATE_SPEED = DX_PI_F/90;  //回転スピード
 
-// 基底ベクトルからローカル座標→ワールド座標変換行列を作成する。
-MATRIX MakeMatrixFromBaseVec( VECTOR ex, VECTOR ey, VECTOR ez, VECTOR sft )
-{
-	// (ex',ey',ez')を（ワールド座標における）ローカル座標の基底セット
-	// o'を（ワールド座標における）ローカル座標の原点とすると、
-	// 以下の条件を満たすMを計算する。（これがローカル座標→ワールド座標変換行列になる）
-	//  M ex = ex'
-	//  M ey = ey'
-	//  M ez = ez'
-	//  M o  = o'
-	
-	MATRIX M=MGetIdent();
-	
-	M.m[0][0] = ex.x;
-	M.m[0][1] = ex.y;
-	M.m[0][2] = ex.z;
-
-	M.m[1][0] = ey.x;
-	M.m[1][1] = ey.y;
-	M.m[1][2] = ey.z;
-
-	M.m[2][0] = ez.x;
-	M.m[2][1] = ez.y;
-	M.m[2][2] = ez.z;
-
-	M.m[3][0] = sft.x;
-	M.m[3][1] = sft.y;
-	M.m[3][2] = sft.z;
-
-	return M;
-};
-
 // コンストラクタ
 CameraWorkManager::CameraWorkManager() :
 	m_CurCamMode(RotateCamOnGazePoint),

@@ -320,212 +320,6 @@ void ParallelBox3D::Render()
 	}
 };
 
-
-// ###############################################
-// ########## class HexagonCrystal
-// ###############################################
-
-/*
-HexagonCrystal::HexagonCrystal( 
-		Vector3D  CenterPos,        // 図形の中心位置
-		double    Hight,            // 高さ
-		double    Width,            // 幅
-		double    Depth,            // 奥行き
-		double    Raito,            // 中面に対する前面／後面の大きさの比率
-		COLOR_U8  DifColor, // 頂点ディフューズカラー
-		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
-		) :
-	m_vCntPos( CenterPos ),
-	m_dHight( Hight ),
-	m_dWidth( Width ),
-	m_dDepth( Depth ),
-	m_dRaito( Raito )
-{
-	
-	// ポリゴン三角形数だっけ？
-	m_iPolygonNum = DivNumLongi*DivNumLati*2; //★
-
-	// Vectexのメモリを確保 Vertex数：
-	int VectexNum = m_iPolygonNum * 3;
-	m_pVertex       = new VERTEX3D[VectexNum];
-	m_pRawVertexPos = new Vector3D[VectexNum];
-	m_pRawVertexNrm = new Vector3D[VectexNum];
-
-	// 単位正六角形
-	vector<Vector3D> UnitRegularHexagon( 6, Vector3D(0,0,0) );
-
-	vector<Vector3D> FrontHexagon( 6, Vector3D(0,0,0) );  // クリスタルの前面フレーム
-	vector<Vector3D> MiddleHexagon( 6, Vector3D(0,0,0) ); // クリスタルの中面フレーム
-	vector<Vector3D> BackHexagon( 6, Vector3D(0,0,0) );   // クリスタルの後面フレーム
-
-	// （x-y平面における）単位正六角形を計算する
-	double oneang = DX_PI / 3.0 ;
-	for( int i=0; i<6; i++ )
-	{
-		UnitRegularHexagon[i].x = cos( i*oneang );
-		UnitRegularHexagon[i].y = sin( i*oneang );
-	}
-
-	// クリスタルのポリゴンを構成する上で、前面・中面・後面の３面の六角形のフレームを
-	// 単位正六角形を変形して計算する
-	for( int i=0; i<6; i++ )
-	{
-		MiddleHexagon[i].x = 0.5 * m_dWidth * UnitRegularHexagon[i].x;
-		MiddleHexagon[i].y = 0.5 * m_dHight * UnitRegularHexagon[i].y;
-
-		FrontHexagon[i].x = m_dRaito * MiddleHexagon[i].x;
-		FrontHexagon[i].y = m_dRaito * MiddleHexagon[i].y;
-		FrontHexagon[i].z =  0.5 * m_dDepth;
-
-		BackHexagon[i].x = m_dRaito * MiddleHexagon[i].x;
-		BackHexagon[i].y = m_dRaito * MiddleHexagon[i].y;
-		BackHexagon[i].z = -0.5 * m_dDepth;
-	}
-	
-	// 前面のポリゴンを計算（中心から放射状）
-
-	// 前面-中面を接続するポリゴンを計算
-
-	// 中面-後面を接続するポリゴンを計算
-
-	// 後面のポリゴンを計算
-
-
-	// 法線はどおする？
-
-
-	// 頂点位置と、トポロジ構造、法線ベクトル、テキスチャマッピングを計算する
-	double LongiSlot = DX_TWO_PI / (double)DivNumLongi; // 緯度の分割幅
-	double LatiSlot  = DX_PI / (double)DivNumLati;      // 緯度の分割幅
-	double XTxSlot   = 1.0 / (double)DivNumLongi;       // テクスチャX軸方向の分割幅
-	double YTxSlot   = 1.0 / (double)DivNumLati;        // テクスチャY軸方向の分割幅
-
-	// 縦横全てのメッシュに対し
-	for( int i=0; i<DivNumLongi; i++ ){
-		for( int j=0; j<DivNumLati; j++ ){
-
-			// 頂点位置の計算
-			double LongiL = LongiSlot *  i;                 // 緯度L
-			double LongiR = LongiSlot * (i+1);              // 緯度R
-			double LatiB  = LatiSlot *  j    - (0.5*DX_PI); // 緯度B
-			double LatiT  = LatiSlot * (j+1) - (0.5*DX_PI); // 緯度T
-			Vector3D PolyBL( cos(LatiB)*cos(LongiL), sin(LatiB), cos(LatiB)*sin(LongiL) );
-			Vector3D PolyBR( cos(LatiB)*cos(LongiR), sin(LatiB), cos(LatiB)*sin(LongiR) );
-			Vector3D PolyTL( cos(LatiT)*cos(LongiL), sin(LatiT), cos(LatiT)*sin(LongiL) );
-			Vector3D PolyTR( cos(LatiT)*cos(LongiR), sin(LatiT), cos(LatiT)*sin(LongiR) );
-			PolyBL *= -Radius; // 半径を反映 + 向きを反転されるため-1をかける
-			PolyBR *= -Radius;
-			PolyTL *= -Radius;
-			PolyTR *= -Radius;
-
-			// テキスチャマッピング位置の計算
-			double TxL = XTxSlot *  i;         
-			double TxR = XTxSlot * (i+1);      
-			double TxB = YTxSlot *  j;
-			double TxT = YTxSlot * (j+1);
-			Vector2D TxBL( TxL, TxB );
-			Vector2D TxBR( TxR, TxB );
-			Vector2D TxTL( TxL, TxT );
-			Vector2D TxTR( TxR, TxT );
-
-			// 法線ベクトルの計算
-			double dist;
-			if( Outward ) dist =  1.0;
-			else          dist = -1.0;
-			Vector3D NorBL = (dist * PolyBL).normalize();
-			Vector3D NorBR = (dist * PolyBR).normalize();
-			Vector3D NorTL = (dist * PolyTL).normalize();
-			Vector3D NorTR = (dist * PolyTR).normalize();
-
-			int suffix = DivNumLati*i + j; // 縦横通番
-
-			// ##### m_pVertex
-			// 三角形１
-			//m_pVertex[ 6*suffix+0 ].pos = PolyBL.toVECTOR();
-			m_pVertex[ 6*suffix+0 ].u   = (float)TxBL.x;
-			m_pVertex[ 6*suffix+0 ].v   = (float)TxBL.y;
-			m_pVertex[ 6*suffix+0 ].norm= NorBL.toVECTOR();
-			//m_pVertex[ 6*suffix+1 ].pos = PolyBR.toVECTOR();
-			m_pVertex[ 6*suffix+1 ].u   = (float)TxBR.x;
-			m_pVertex[ 6*suffix+1 ].v   = (float)TxBR.y;
-			m_pVertex[ 6*suffix+1 ].norm= NorBR.toVECTOR();
-			//m_pVertex[ 6*suffix+2 ].pos = PolyTL.toVECTOR();
-			m_pVertex[ 6*suffix+2 ].u   = (float)TxTL.x;
-			m_pVertex[ 6*suffix+2 ].v   = (float)TxTL.y;
-			m_pVertex[ 6*suffix+2 ].norm= NorTL.toVECTOR();
-
-			// 三角形２
-			//m_pVertex[ 6*suffix+3 ].pos = PolyBR.toVECTOR();
-			m_pVertex[ 6*suffix+3 ].u   = (float)TxBR.x;
-			m_pVertex[ 6*suffix+3 ].v   = (float)TxBR.y;
-			m_pVertex[ 6*suffix+3 ].norm= NorBR.toVECTOR();
-			//m_pVertex[ 6*suffix+4 ].pos = PolyTL.toVECTOR();
-			m_pVertex[ 6*suffix+4 ].u   = (float)TxTL.x;
-			m_pVertex[ 6*suffix+4 ].v   = (float)TxTL.y;
-			m_pVertex[ 6*suffix+4 ].norm= NorTL.toVECTOR();
-			//m_pVertex[ 6*suffix+5 ].pos = PolyTR.toVECTOR();
-			m_pVertex[ 6*suffix+5 ].u   = (float)TxTR.x;
-			m_pVertex[ 6*suffix+5 ].v   = (float)TxTR.y;
-			m_pVertex[ 6*suffix+5 ].norm= NorTR.toVECTOR();
-
-			// ##### m_pRawVertexPos
-			// 三角形１
-			m_pRawVertexPos[ 6*suffix+0 ] = PolyBL;
-			m_pRawVertexPos[ 6*suffix+1 ] = PolyBR;
-			m_pRawVertexPos[ 6*suffix+2 ] = PolyTL;
-
-			// 三角形２
-			m_pRawVertexPos[ 6*suffix+3 ] = PolyBR;
-			m_pRawVertexPos[ 6*suffix+4 ] = PolyTL;
-			m_pRawVertexPos[ 6*suffix+5 ] = PolyTR;
-
-			// ##### m_pRawVertexNrm
-			// 三角形１
-			m_pRawVertexNrm[ 6*suffix+0 ] = NorBL;
-			m_pRawVertexNrm[ 6*suffix+1 ] = NorBR;
-			m_pRawVertexNrm[ 6*suffix+2 ] = NorTL;
-										  
-			// 三角形２					  
-			m_pRawVertexNrm[ 6*suffix+3 ] = NorBR;
-			m_pRawVertexNrm[ 6*suffix+4 ] = NorTL;
-			m_pRawVertexNrm[ 6*suffix+5 ] = NorTR;
-
-		}
-	}
-
-	// color と使わない要素を代入する
-	COLOR_U8 DifColor = GetColorU8( 255, 255, 255, 0 );
-	COLOR_U8 SpcColor = GetColorU8( 255, 255, 255, 0 );
-	for( int i=0; i<VectexNum; i++ )
-	{
-		m_pVertex[i].dif = DifColor;
-		m_pVertex[i].spc = SpcColor;
-		m_pVertex[i].su  = 0.0f;
-		m_pVertex[i].sv  = 0.0f;
-	}
-
-	// 中心位置をシフト
-	setCenterPos( m_vCntPos );
-
-	// マテリアルパラメータの初期化
-	m_Material.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_Material.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_Material.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_Material.Emissive = GetColorF( 1.0f, 1.0f, 1.0f, 1.0f ) ;
-	m_Material.Power    = 0.0f ;
-
-	m_MaterialDefault.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_MaterialDefault.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_MaterialDefault.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_MaterialDefault.Emissive = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
-	m_MaterialDefault.Power    = 20.0f ;
-};
-
-*/
-
-
-
-
 // ###############################################
 // ########## class TextureSphere
 // ###############################################
@@ -815,7 +609,7 @@ void TextureSphere3D::MatTransVertex( const MATRIX &Mat )
 	for( int i=0; i<VectexNum; i++ )
 	{
 		m_pVertex[i].pos  = VTransform( m_pVertex[i].pos, Mat );
-		m_pVertex[i].norm = VTransformSR( m_pRawVertexNrm[i].toVECTOR(), Mat ); // 法線ベクトルも変換が必要になる
+		m_pVertex[i].norm = VTransformSR( m_pVertex[i].norm, Mat ); // 法線ベクトルも変換が必要になる
 	}
 };
 
@@ -976,6 +770,133 @@ void PlaneRing::setCenterPos( Vector3D CntPos )
 	}
 };
 
+
+// ###############################################
+// ########## class PlaneConvexFill
+// ###############################################
+
+// コンストラクタ
+PlaneConvexFill::PlaneConvexFill( 
+		Vector2D  *pVertex2D,       // 凸形図形の輪郭頂点の配列
+		int       DivNum,           // 分割数（頂点数）
+		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
+		) 
+{
+	// DivNum < 3 は想定外
+	assert( DivNum >= 3 );
+	
+	// Vertex を計算する
+	m_iPolygonNum = DivNum - 2;
+
+	// Vectexのメモリを確保 Vertex数：DivNum * 4(上面・底辺・側面（２倍）) * 3（１ポリゴンの頂点数）
+	int VectexNum = m_iPolygonNum*3;
+	m_pVertex       = new VERTEX3D[VectexNum];
+	m_pRawVertexPos = new Vector3D[VectexNum];
+	m_pRawVertexNrm = new Vector3D[VectexNum];
+	
+	
+	// 輪郭頂点情報から、ポリゴン情報を生成する。
+	// 初めの要素 pVertex2D[0] を中心に放射状に三角形分割する
+
+	// 法線方向ベクトル
+	Vector3D vNrm = Vector3D( 0.0, 1.0, 0.0 );
+
+	int c=0; //カウンタ
+	for( int i=2; i<DivNum; i++ )
+	{
+		// 三角形
+		m_pRawVertexPos[ 3*c+0 ] = pVertex2D[0].toVector3D();
+		m_pRawVertexNrm[ 3*c+0 ] = vNrm;
+
+		m_pRawVertexPos[ 3*c+1 ] = pVertex2D[i-1].toVector3D();
+		m_pRawVertexNrm[ 3*c+1 ] = vNrm;
+
+		m_pRawVertexPos[ 3*c+2 ] = pVertex2D[i].toVector3D();
+		m_pRawVertexNrm[ 3*c+2 ] = vNrm;
+		c++;
+
+	}
+
+	assert( c==m_iPolygonNum );
+
+	// color と使わない要素を代入する
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].pos  = m_pRawVertexPos[i].toVECTOR();
+		m_pVertex[i].norm = m_pRawVertexNrm[i].toVECTOR();
+		m_pVertex[i].dif  = GetColorU8( 0,0,0,0); //DifColor;
+		m_pVertex[i].spc  = GetColorU8( 0,0,0,0); //SpcColor;
+		m_pVertex[i].u    = 0.0f;
+		m_pVertex[i].v    = 0.0f;
+		m_pVertex[i].su   = 0.0f;
+		m_pVertex[i].sv   = 0.0f;
+	}
+
+	// マテリアルパラメータの初期化
+	m_Material.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_Material.Emissive = EmissivColor ;
+	m_Material.Power    = 0.0f ;
+
+	m_MaterialDefault.Diffuse  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Specular = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Ambient  = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Emissive = GetColorF( 0.0f, 0.0f, 0.0f, 0.0f ) ;
+	m_MaterialDefault.Power    = 20.0f ;
+
+};
+
+
+void PlaneConvexFill::resetVertex()
+{
+	int VectexNum = m_iPolygonNum * 3;
+
+	// m_pVertex.pos を m_pRawVertexPos で上書き
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].pos  = m_pRawVertexPos[i].toVECTOR();
+		m_pVertex[i].norm = m_pRawVertexNrm[i].toVECTOR();
+	}
+};
+
+void PlaneConvexFill::Render()
+{
+	// Zバッファ OFF
+	//SetUseZBuffer3D( FALSE );
+	//SetWriteZBuffer3D( FALSE );
+
+	// ライトの影響を受けないように設定
+	SetMaterialUseVertDifColor( FALSE ) ; // 頂点データのディフューズカラーを使用しないようにする
+	SetMaterialUseVertSpcColor( FALSE ) ; // 頂点データのスペキュラカラーを使用しないようにする
+	SetMaterialParam( m_Material ) ; // マテリアルの設定を有効
+
+	DrawPolygon3D( m_pVertex, m_iPolygonNum, DX_NONE_GRAPH, FALSE ) ;
+
+	// マテリアル設定を元に戻す
+	SetMaterialUseVertDifColor( TRUE ) ;
+	SetMaterialUseVertSpcColor( TRUE ) ;
+	SetMaterialParam( m_MaterialDefault ) ;
+
+	// Zバッファ有効化
+	//SetUseZBuffer3D( TRUE );
+	//SetWriteZBuffer3D( TRUE );
+
+
+};
+
+void PlaneConvexFill::MatTransVertex( const MATRIX &Mat )
+{
+	int VectexNum = m_iPolygonNum * 3;
+	for( int i=0; i<VectexNum; i++ )
+	{
+		m_pVertex[i].pos  = VTransform( m_pVertex[i].pos, Mat );
+		m_pVertex[i].norm = VTransformSR( m_pVertex[i].norm, Mat ); // 法線ベクトルも変換が必要になる
+	}
+};
+
+
+
 // ###############################################
 // ########## class LineRing
 // ###############################################
@@ -1065,6 +986,58 @@ void LineSegment::Render()
 };
 
 void LineSegment::MatTransVertex( const MATRIX &Mat )
+{
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		m_pVECTORs[i] = VTransform( m_pVECTORs[i], Mat );
+	}
+};
+
+// ###############################################
+// ########## class LineFreeCycle
+// ###############################################
+
+LineFreeCycle::LineFreeCycle(
+		int       DivNum,           // 分割数
+		unsigned int Color          // 線の色
+		) :
+	m_iColor( Color )
+{
+	// m_pVECTORs, m_pRawVertexPos のメモリを確保
+	m_iVertexNum = DivNum;
+	m_pVECTORs      = new VECTOR[m_iVertexNum];
+	m_pRawVertexPos = new Vector3D[m_iVertexNum];
+
+	// 分割数から正多角形の中心角を計算
+	double CenterAng = 2*DX_PI_F/((double)m_iVertexNum);
+
+	// m_pRawVertexPos を生成
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		// 初期値は単位円になるようにする。
+		Vector2D V2D( cos(CenterAng*i), sin(CenterAng*i) );
+		m_pRawVertexPos[i] = (1.0*V2D).toVector3D();
+	}
+};
+
+void LineFreeCycle::resetVertex()
+{
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		m_pVECTORs[i] = m_pRawVertexPos[i].toVECTOR();
+	}
+}
+
+void LineFreeCycle::Render()
+{
+	for( int i=0; i<m_iVertexNum; i++ )
+	{
+		int j=(i+1)%m_iVertexNum; // 次の添字（円順対応）
+		DrawLine3D( m_pVECTORs[i], m_pVECTORs[j], m_iColor );
+	}
+};
+
+void LineFreeCycle::MatTransVertex( const MATRIX &Mat )
 {
 	for( int i=0; i<m_iVertexNum; i++ )
 	{

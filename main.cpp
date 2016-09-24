@@ -248,16 +248,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	GameWorldIns.SetItemsToWorld( 20.0, 5.0, "ItemPlaceDef.bmp" );
 
-	// アイテムをいくつかおく
-	/*
-	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 20, 0, 0 ) ) );
-	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 25, 0, 0 ) ) );
-	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 30, 0, 0 ) ) );
-	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 35, 0, 0 ) ) );
-	GameWorldIns.RegisterSampleItemEntity( new SampleItemEntity( &GameWorldIns, Vector3D( 40, 0, 0 ) ) );
-	*/
-
-
 	// ライト関係パラメータ
 	Vector3D LightPos;
 	Vector3D LightHead;

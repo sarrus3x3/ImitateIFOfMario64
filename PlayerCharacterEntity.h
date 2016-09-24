@@ -178,6 +178,7 @@ public:
 	// スティックの傾きの方向からEntityの移動方向を計算する
 	Vector3D calcMovementDirFromStick();
 
+
 	// #### 暫定 ####
 public:
 	bool m_bTouchGroundFlg;  // 接地flg

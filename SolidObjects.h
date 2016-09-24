@@ -237,6 +237,58 @@ public:
 
 };
 
+// ############### 平面上凸形図形・塗りつぶし ###############
+class PlaneConvexFill
+{
+private:
+	VERTEX3D* m_pVertex; // ポリゴン集合を保持
+	int m_iPolygonNum;   // ポリゴン数
+
+	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
+	Vector3D* m_pRawVertexNrm; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に、法線
+
+	//Vector3D* m_pOutLineVertexes;  // 輪郭線の頂点情報
+
+	MATERIALPARAM m_Material;         // マテリアルパラメータ
+	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
+
+public:
+	// コンストラクタ
+	PlaneConvexFill( 
+		Vector2D  *pVertex2D,       // 凸形図形の輪郭頂点の配列
+		int       DivNum,           // 分割数（頂点数）
+		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
+		);
+
+	// コンストラクタ（輪郭頂点の配列の指定なし）
+	PlaneConvexFill( 
+		int       DivNum,           // 分割数（頂点数）
+		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
+		);
+
+	// 光沢なしの塗りつぶしは、「平面輪っか」オブジェクトを参考にする。
+
+	// 頂点を編集 <- 法線方向は調整できないので注意。今回はレンダリングを自己発光にするので不都合はないが...
+	Vector3D* editVertexes(){ return m_pRawVertexPos; };
+
+	// 全頂点数を取得
+	int getAllVertexNum(){ return 3*m_iPolygonNum; };
+
+	// m_pVertex を m_pRawVertexPos で初期化
+	void resetVertex();
+
+	// 描画
+	void Render();
+
+	// 与えられた行列 Mat で m_pVertex を変換
+	void MatTransVertex( const MATRIX &Mat );
+
+	
+
+};
+
+
+
 // ############### 線輪っか ###############
 class LineRing
 {
@@ -244,8 +296,6 @@ private:
 	int       m_iVertexNum;    // 頂点数
 	VECTOR*   m_pVECTORs;      // 頂点集合を保持
 	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
-	MATERIALPARAM m_Material;         // マテリアルパラメータ
-	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
 
 	unsigned int m_iColor;  // 線の色
 
@@ -257,6 +307,9 @@ public:
 		int       DivNum,           // 分割数
 		unsigned int Color          // 線の色
 		);
+
+	// 頂点を編集
+	Vector3D* editVertexes(){ return m_pRawVertexPos; };
 
 	// m_pVertex を m_pRawVertexPos で初期化
 	void resetVertex();
@@ -276,8 +329,6 @@ private:
 	int       m_iVertexNum;    // 頂点数
 	VECTOR*   m_pVECTORs;      // 頂点集合を保持
 	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
-	MATERIALPARAM m_Material;         // マテリアルパラメータ
-	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
 
 	unsigned int m_iColor;  // 線の色
 
@@ -299,4 +350,36 @@ public:
 	// 与えられた行列 Mat で m_pVertex を変換
 	void MatTransVertex( const MATRIX &Mat );
 
+};
+
+// ############### 自由閉路 ###############
+// ３次元閉路
+class LineFreeCycle
+{
+private:
+	int       m_iVertexNum;    // 頂点数
+	VECTOR*   m_pVECTORs;      // 頂点集合を保持
+	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
+
+	unsigned int m_iColor;  // 線の色
+
+public:
+
+	// コンストラクタ
+	LineFreeCycle( 
+		int       DivNum,           // 分割数
+		unsigned int Color          // 線の色
+		);
+
+	// 頂点を編集
+	Vector3D* editVertexes(){ return m_pRawVertexPos; };
+
+	// m_pVertex を m_pRawVertexPos で初期化
+	void resetVertex();
+
+	// 描画
+	void Render();
+
+	// 与えられた行列 Mat で m_pVertex を変換
+	void MatTransVertex( const MATRIX &Mat );
 };

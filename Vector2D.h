@@ -13,7 +13,7 @@ using namespace std;
 class Point2D;
 class Vector3D;
 
-//二次元double型ベクトルクラス
+// ################### 二次元double型ベクトルクラス ################### 
 //実数ベクトルの意
 class Vector2D {
 public:
@@ -240,4 +240,35 @@ inline Vector2D Vector2DToWorldSpace(const Vector2D &vec,
 	return vec.x * AgentHeading + vec.y * AgentSide;
 };
 
+// #### 2x2行列 ####
+// DXライブラリの行列の実装に習う
+
+// 行列構造体
+struct C2DMATRIX
+{
+	double					m[2][2] ;
+};
+
+// 行列の掛け算
+inline Vector2D C2DVTransform( Vector2D vIn, C2DMATRIX InM )
+{
+	Vector2D vRtn;
+	vRtn.x = InM.m[0][0]*vIn.x + InM.m[1][0]*vIn.y;
+	vRtn.y = InM.m[0][1]*vIn.x + InM.m[1][1]*vIn.y;
+	return vRtn;
+};
+
+// 回転行列の取得
+inline C2DMATRIX C2DMGetRot( double Rotate )
+{
+	// 回転行列 R
+	// |  cos( a ) , -sin( a ) |
+	// |  sin( a ) ,  cos( a ) |
+	C2DMATRIX MRtn;
+	MRtn.m[0][0] =  cos( Rotate );
+	MRtn.m[1][0] = -sin( Rotate );
+	MRtn.m[0][1] =  sin( Rotate );
+	MRtn.m[1][1] =  cos( Rotate );
+	return MRtn;
+};
 
