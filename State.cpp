@@ -84,7 +84,7 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 void Standing::StateTranceDetect( PlayerCharacterEntity* pEntity )
 {
 	// ƒRƒ“ƒgƒ[ƒ‰[“ü—Í‚ª‚ ‚Á‚½‚çAState‚ğRunning‚É•ÏX
-	if( pEntity->m_pVirCntrl->m_dTiltQuantStickL > 0 )
+	if( pEntity->m_pVirCntrl->m_dStickL_len > 0 )
 	{
 		// pEntity->ChangeState( Running::Instance() );
 		pEntity->ChangeState( SurfaceMove::Instance() );
@@ -338,12 +338,14 @@ const double SurfaceMove::MaxCentripetalForce = 500.0*10;   // ù‰ñ‚ÌÅ‘åŒüS—
 
 const double SurfaceMove::MaxVelocity      = 65.0; // ƒLƒƒƒ‰ƒNƒ^[‚ÌÅ‘å‘¬“xiƒXƒeƒBƒbƒN‚ğmax‚Ü‚Å“|‚µ‚½‚ÌÅ‘å‘¬“xj
 
-const double SurfaceMove::ViscousRsisInert = 20.0;  // Šµ«„i‚Ì”S«’ïRŒW”
-const double SurfaceMove::ViscousRsisAccel = 20.0;  // ‰Á‘¬‚Ì”S«’ïRŒW”
+const double SurfaceMove::ViscousRsisInert = 30.0;  // Šµ«„i‚Ì”S«’ïRŒW”
+const double SurfaceMove::ViscousRsisAccel = 30.0;  // ‰Á‘¬‚Ì”S«’ïRŒW”
 // 2016/08/18
 // ‘–‚èn‚ß’¼Œã‚Éis•ûŒü‚ğ”½“]‚³‚¹‚½ê‡‚ÉØ•Ô‚µ“®ì‚ğs‚í‚È‚¢‚æ‚¤‚Éƒ`ƒ…[ƒjƒ“ƒO
 // Šµ«„i‚Æ‰Á‘¬‚Ì”S«’ïR‚ğ“¯‚¶‚É‚·‚éB
 // Ø•Ô‚µ“®ì‚Ì‰Á‘¬—Í‚É‡‚¹‚Ä’l‚ğ¬‚³‚­ƒ`ƒ…[ƒjƒ“ƒO‚µ‚½
+// 2016/09/25
+// ‚¿‚å‚Á‚ÆA‰Á‘¬‚ªˆ«‚·‚¬‚é 20 ¨ 30 ‚É‚µ‚Ä‚İ‚é
 
 
 SurfaceMove* SurfaceMove::Instance()
@@ -377,7 +379,7 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 		// ¨ –Ê“|‚­‚³‚¢‚©‚ç‚¢‚âcBƒuƒŒƒ“ƒh‚µ‚Ä‚à‘åä•v‚¾‚ë
 
 		// ƒTƒuƒXƒe[ƒg‚Ì•]‰¿‚ğs‚¤
-		if( (pEntity->m_pVirCntrl->m_dTiltQuantStickL > ThresholdSticktiltRunToWark) 
+		if( (pEntity->m_pVirCntrl->m_dStickL_len > ThresholdSticktiltRunToWark) 
 			|| pEntity->SpeedSq() < ThresholdSpeedRunToWark )
 		{ // ƒAƒiƒƒOƒXƒeƒBƒbƒNŒX‚«‚ªWarkingè‡’lˆÈã or Entity‚ÌƒXƒs[ƒh‚ª\•ª‘å‚«‚¢
 			// ƒTƒuƒXƒe[ƒg‚ğ‘–‚è‚ÉƒZƒbƒg
@@ -466,14 +468,19 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 
 	// #### ƒ_ƒbƒVƒ…‚©‚ç‚ÌØ•Ô‚µ‚Ì‘JˆÚ”»’è
-	static const double InnerProductForStartTurn = 0.0; // ‘¬“xƒxƒNƒgƒ‹i‹KŠi‰»Ï‚İj‚ÆˆÚ“®•ûŒüƒxƒNƒgƒ‹‚Ì“àÏ’l‚ª‚±‚Ì’lˆÈ‰º‚Å‚ ‚ê‚ÎAØ•Ô‚µ‚Æ”»’è‚·‚éB
+
+	// ‘¬“xƒxƒNƒgƒ‹i‹KŠi‰»Ï‚İj‚ÆˆÚ“®•ûŒüƒxƒNƒgƒ‹‚Ì“àÏ’l‚ª‚±‚Ì’lˆÈ‰º‚Å‚ ‚ê‚ÎAØ•Ô‚µ‚Æ”»’è‚·‚éB
+	//static const double InnerProductForStartTurn = 0.0;
+	static const double InnerProductForStartTurn = -cos( DX_PI_F/6.0 ); 
 	
 	//if( pEntity->m_eMoveLevel == PlayerCharacterEntity::MvLvRunning )
 	if( pEntity->Velocity().sqlen() >= ThresholdSpeedRunToWark )
 	{ // ˆÚ“®ƒŒƒxƒ‹‚ªARunning‚È‚ç‚Î
 		Vector3D VelDir  = pEntity->Velocity().normalize();
 		Vector3D MoveDir = pEntity->calcMovementDirFromStick().normalize();
-		if( VelDir*MoveDir <= InnerProductForStartTurn )
+		Vector3D EstiDir = (pEntity->calcMovementDirFromStick()-VelDir).normalize();
+		//if( VelDir*MoveDir <= InnerProductForStartTurn )
+		if( MoveDir*VelDir<=0 && EstiDir*VelDir<=InnerProductForStartTurn )
 		{
 			pEntity->ChangeState( OneEightyDegreeTurn::Instance() );
 			return ;
@@ -489,7 +496,7 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	pEntity->DBG_m_dDBG=pEntity->SpeedSq();
 
 
-	if( (pEntity->m_pVirCntrl->m_dTiltQuantStickL > ThresholdSticktiltRunToWark)  )
+	if( (pEntity->m_pVirCntrl->m_dStickL_len > ThresholdSticktiltRunToWark)  )
 	{ // ƒAƒiƒƒOƒXƒeƒBƒbƒNŒX‚«‚ªWarkingè‡’lˆÈã
 		// Ä‚ÑƒAƒNƒZƒŒ[ƒVƒ‡ƒ“‚³‚ê‚½ê‡‚ÍMoveƒŒƒxƒ‹‚ğ–ß‚·•K—v‚ª‚ ‚é
 		if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvRunning )
@@ -522,7 +529,7 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 	// ƒRƒ“ƒgƒ[ƒ‰[“ü—Í‚ª‚È‚­A‘¬“x‚ª\•ª‚É¬‚³‚­‚È‚Á‚½‚çAState‚ğStanding‚É•ÏX
 	if( pEntity->SpeedSq() < ThresholdSpeedForStop 
-		&& pEntity->m_pVirCntrl->m_dTiltQuantStickL==0 )
+		&& pEntity->m_pVirCntrl->m_dStickL_len==0 )
 	{ 
 		pEntity->ChangeState( Standing::Instance() );
 		return ;
@@ -531,6 +538,11 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	// ƒAƒjƒ[ƒVƒ‡ƒ“ŠÖŒWˆ—‚ÍArender()‚ÖB
 	// ¨ ‚Æv‚Á‚½‚ªAƒTƒuState‘JˆÚ‚ÌƒgƒŠƒK‚Írender‚Ì’†‚Å‚µ‚©‚í‚©‚ç‚È‚¢B
 	//    –³—‚â‚è‚Å‚«‚È‚­‚à‚È‚¢‚ªA‚±‚Ì‚Ü‚Ü‚Å‚¢‚¢‚©...
+
+
+
+
+
 
 
 }
@@ -713,6 +725,9 @@ void SurfaceMove::Render(PlayerCharacterEntity* pEntity )
 	else if( pEntity->m_eMoveLevel!=PlayerCharacterEntity::MvLvWalking )	
 	{
 		pEntity->m_pAnimMgr->setPitch((float)((14.0/12.0)*speed)); // ƒn[ƒhƒR[ƒfƒBƒ“ƒO‚Íƒ}ƒYƒC‚Ì‚¾
+		//pEntity->m_pAnimMgr->setPitch((float)((14.0/12.0)*MaxVelocity)); // ƒn[ƒhƒR[ƒfƒBƒ“ƒO‚Íƒ}ƒYƒC‚Ì‚¾
+		// ¨ ‚±‚ê‚¾‚Æ‚¿‚å‚Á‚Æ‚â‚è‰ß‚¬‚¾‚È... ‚ ‚ÆAƒ}ƒŠƒI‚Å‚Í‚ ‚Á‚Ä‚é‚©‚à‚µ‚ê‚È‚¢‚¯‚ÇA‚±‚ÌƒLƒƒƒ‰ƒNƒ^[‚¾‚Æ‡‚í‚È‚¢‚©‚à...
+
 	}
 
 	// ###### ƒfƒoƒbƒN—po—Í 
@@ -756,8 +771,8 @@ void SurfaceMove::Exit( PlayerCharacterEntity* pEntity )
 //const double OneEightyDegreeTurn::MaxVelocity      = 65.0;  // ƒLƒƒƒ‰ƒNƒ^[‚ÌÅ‘å‘¬“xiƒXƒeƒBƒbƒN‚ğmax‚Ü‚Å“|‚µ‚½‚ÌÅ‘å‘¬“xj
 //const double OneEightyDegreeTurn::ViscousRsisTurn   = 40.0;  // ”S«’ïRŒW”
 //const double OneEightyDegreeTurn::ViscousRsisBreak  = 25.0;  // ”S«’ïRŒW”
-const double OneEightyDegreeTurn::TurningDulation  = 0.4;
-const double OneEightyDegreeTurn::BrakingDulation  = 0.2;   // ƒuƒŒ[ƒLó‘Ô‚ÌŒp‘±ŠÔ
+const double OneEightyDegreeTurn::TurningDulation  = 0.3;
+const double OneEightyDegreeTurn::BrakingDulation  = 0.1;   // ƒuƒŒ[ƒLó‘Ô‚ÌŒp‘±ŠÔ
 
 //const double OneEightyDegreeTurn::SlowDownEnough   = 5.0;   // SurfaceMove¨’â~ ‚Ì‘¬“xè‡’l‚Æ“¯‚¶‚É‚µ‚Ä‚¨‚­
 const double OneEightyDegreeTurn::InnerProductForStartTurn = 0.0; // ‘¬“xƒxƒNƒgƒ‹i‹KŠi‰»Ï‚İj‚ÆˆÚ“®•ûŒüƒxƒNƒgƒ‹‚Ì“àÏ’l‚ª‚±‚Ì’lˆÈ‰º‚Å‚ ‚ê‚ÎAØ•Ô‚µ‚Æ”»’è‚·‚éB
@@ -877,7 +892,7 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 		if( pEntity->getStopWatchTime() > BrakingDulation )
 		{
 			// ƒXƒeƒBƒbƒN‚ÌŒX‚«‚ª 0 ‚¾‚Á‚½ê‡‚ÍA‚»‚ÌŒã‚ÉØ•Ô‚µ‚ğƒLƒƒƒ“ƒZƒ‹‚µ‚Ä ’â~‚Ìó‘Ô‚É‘JˆÚB
-			if( pEntity->m_pVirCntrl->m_dTiltQuantStickL==0 )
+			if( pEntity->m_pVirCntrl->m_dStickL_len==0 )
 			{ 
 				pEntity->ChangeState( Standing::Instance() );
 				return ;
@@ -891,6 +906,9 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 			// Øo‚µ“®ì‚Å"”­Ë"‚·‚é•û‚Æ‚µ‚ÄAØo‚µ“®ìŠJn‚µ‚½‚ÌƒXƒeƒBƒbƒN‚ÌŒü‚«i‹KŠi‰»j‚Éİ’è
 			m_vTurnDestination = pEntity->calcMovementDirFromStick().normalize();
+
+			// iƒuƒŒ[ƒLŒã‚ÌjØ•Ô‚µŠJn‚Ì‘¬“x‚ğ‹L‰¯
+			m_vVelEnterTurning = pEntity->Velocity();
 
 			// Ø•Ô‚µ“®ì‚ÌƒAƒjƒ[ƒVƒ‡ƒ“‚ğÄ¶
 			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turning );
@@ -917,6 +935,18 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			return;
 		}
 	}
+
+
+	// #### ƒfƒoƒbƒO—p
+	if( m_eSubState == SUB_TURNING )
+	{
+		pEntity->DBG_m_vTurnDestination = m_vTurnDestination;
+	}
+	else
+	{
+		pEntity->DBG_m_vTurnDestination = Vector3D( 0,0,0 );
+	}
+
 
 }
 
@@ -952,16 +982,21 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		// ##### Entity‚É“­‚­—Í‚ğŒvZ
 
 		// ƒXƒeƒBƒbƒN‚ÌŒX‚«‚Ì•ûŒü‚©‚çEntity‚ÌˆÚ“®•ûŒü‚ğŒvZ‚·‚é
-		Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
+		//Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
 		
 		// * ƒXƒeƒBƒbƒN‚ÌŒX‚«i=Inputj‚©‚çAI‘¬“x‚ğŒvZ
-		Vector3D TerminalVel = SurfaceMove::MaxVelocity * m_vTurnDestination;
+		// ‚±‚Ì‚ÉƒXƒeƒBƒbƒN‚ÌŒX‚«‚Ì‘å‚«‚³‚ğ”½‰f‚³‚¹‚é‚æ‚¤‚É‚·‚é
 
-		// Ø•Ô‚µ‚Ì„i—Í‚ğŒvZ
-		Vector3D vTurnningForce = SurfaceMove::ViscousRsisAccel * TerminalVel;
+		static double EndSpeed = 0.5 * (SurfaceMove::MaxVelocity + sqrt(SurfaceMove::ThresholdSpeedRunToWark) );
 
-		// ”S«’ïRƒ‚ƒfƒ‹‚©‚çEntity‚É“­‚­—Í‚ğŒvZ
-		PhyVar.Force = vTurnningForce - SurfaceMove::ViscousRsisAccel * (pEntity->Velocity());
+		Vector3D TerminalVel =
+			EndSpeed
+			* pEntity->m_pVirCntrl->m_dStickL_len
+			* m_vTurnDestination;
+
+		// Ø•Ô‚µ‚ğŠÔ“à‚ÉI‘¬“x‚Ü‚Å‰Á‘¬‚·‚é‚æ‚¤‚É‚·‚é
+		PhyVar.VelVar = (TerminalVel-m_vVelEnterTurning) / TurningDulation ;
+		PhyVar.UseVelVar  = true;
 
 		// ##### EntityŒü‚«‚Ì‰ñ“]—Ê‚ğŒvZ
 		// * TurningDulation ‚ÅŒü‚«‚Ì‰ñ“]‚ªŠ®—¹‚·‚é‚æ‚¤‚ÉA‰ñ“]‘¬“x‚ğ’²®

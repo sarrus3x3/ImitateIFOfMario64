@@ -15,14 +15,16 @@ public:
 	// ### カメラモード ###
 	// ① RotateCamOnGazePoint : 注視点を中心にカメラが回転
 	// ② TrackingMovingTarget : ターゲットを追尾する
+	// ③ SavedViewMatrix      : 保存しておいたビュー行列に設定
 	// カメラモード識別enum
 	enum CameraModeID
 	{
 		RotateCamOnGazePoint=0,
-		TrackingMovingTarget=1
+		TrackingMovingTarget=1,
+		SetSavedViewMatrix=2
 	};
 
-	static const int m_iCameraModeMax = 2;
+	static const int m_iCameraModeMax = 3;
 
 private:
 	// ### メンバ ###
@@ -52,6 +54,7 @@ private:
 	// Update関数（カメラモード毎に用意）
 	void Update_RotateCamOnGazePoint( double timeslice );
 	void Update_TrackingMovingTarget( double timeslice );
+	void Update_SetSavedViewMatrix();
 
 	// ### 補助メソッド ###
 	// ① RotateCamOnGazePoint 用
@@ -68,6 +71,9 @@ public:
 
 	// DXライブラリのカメラセット関数を実行
 	void setCamera();
+
+	// 現在のカメラモードを取得
+	CameraModeID getCameraMode(){ return m_CurCamMode; };
 
 	// カメラモードを設定
 	void setCameraMode( CameraModeID camID ){ m_CurCamMode=camID; };
@@ -99,7 +105,20 @@ public:
 
 	// カメラ位置を直交座標系で設定
 	// ※ Updateと併用できないので注意 
-	void     setCamFinalPos ( Vector3D Pos ){ m_vFinalCamPos = Pos; }; 
+	//void     setCamFinalPos ( Vector3D Pos ){ m_vFinalCamPos = Pos; }; 
+	// → 今は、カメラ状態をビュー行列で制御しているため使用できない
+
+	// #### カメラのビュー位置の保存＆復元機能
+
+	// カメラのビュー行列を保存する変数
+	MATRIX m_MSaveViewWorld;
+
+	// カメラのビュー行列を保存（外部ファイルへの書出し＆変数に保持）
+	void saveViewMatrix( MATRIX mViewMat ); 
+	void saveViewMatrix(){ saveViewMatrix( m_MViewWorld ); }; // 引数なしで現在のビュー行列（m_MViewWorld）を保存する。
+
+	// カメラのビュー行列を外部ファイルから変数に読み込む
+	void loadViewMatrix();
 
 
 };

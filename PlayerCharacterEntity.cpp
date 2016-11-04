@@ -4,6 +4,7 @@
 #include "VirtualController.h"
 #include "CameraWorkManager.h"
 #include "SolidObjects.h"
+#include "MyUtilities.h" // デバック描画のためのツール使用
 
 #include <cassert>
 
@@ -133,11 +134,11 @@ void PlayerCharacterEntity::Render()
 	m_pAnimMgr->Play(this);
 };
 
-// スティック傾きから進行方向の計算方式の変更
-//#define SAVE_ANGLE_VARIATION
-
 Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 {
+
+#define SAVE_ANGLE_VARIATION // スティック傾きから進行方向の計算方式の変更
+
 	static Vector3D vStickTiltFromCam;
 	static LONGLONG LastGameStep=0;
 
@@ -156,8 +157,10 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 	// カメラのビュー行列をEntityのローカル座標でのものに設定
 	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
 
-	static const Vector3D vPosOrign = Vector3D( 0,0,0 );
-
+	static const Vector3D vPosOrign   = Vector3D( 0.0, 0.0, 0.0 );
+	static const Vector2D vPosOrign2D = Vector2D( 0.0, 0.0 );
+	static const Vector2D vPosUpper2D = Vector2D( 0.0, 1.0 );
+	static const Vector3D vBaseY = Vector3D( 0.0, 1.0, 0.0 );
 
 // 画面上のスティックの傾きをキャラクタ平面に投影し、進行方向を決定する方式
 #ifndef SAVE_ANGLE_VARIATION
@@ -188,22 +191,53 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 		vSteeringForceDir *= -1; // 反対向きに設定
 	}
 
+	// 大きさはオリジナルのスティックの傾きを使用
+	vStickTiltFromCam = m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
+
 #endif
 
 // スティックの上方向のみキャラクタ平面へ投影した方向と合せて、
 // スティックの傾きをキャラクタ平面へ剛体変換して進行方向を決定する方式
 #ifdef SAVE_ANGLE_VARIATION
-	// 
 
+	// ## 画面上方向をキャラクタ平面に投影した向きを計算する
+
+	// 画面中央位置をキャラクタ平面に投影した座標を計算する
+	Vector3D vScreenCntPrj = convScreenPosToXZPlane( vPosOrign2D );
+
+	// 画面上の上方向ベクトルをキャラクタ平面に投影した座標を計算する
+	Vector3D vScreenUprPrj = convScreenPosToXZPlane( vPosUpper2D );
+
+	Vector3D vBaseZ = (vScreenUprPrj - vScreenCntPrj).normalize();
+	Vector3D vBaseX = vBaseY * vBaseZ ;
+
+	// ## スティックの上方向のキャラクタ平面上のベクトルと、
+	// ## キャラクタ平面に対する上方向ベクトルから座標変換行列（剛体変換）を計算
+	MATRIX TransMat = MGetAxis1( 
+			vBaseX.toVECTOR(),
+			vBaseY.toVECTOR(),
+			vBaseZ.toVECTOR(),
+			vPosOrign.toVECTOR() );
+
+	// ## 座標変換行列でスティックの傾き方向を変換し、キャラクタ進行方向を計算する
+	Vector3D vSteeringForceDir;
+	if( m_pVirCntrl->m_dStickL_len > 0 )
+	{
+		vSteeringForceDir = VTransform( 
+			m_pVirCntrl->m_vStickL.normalize().toVector3D().toVECTOR(), 
+			TransMat );
+		vStickTiltFromCam = m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
+	}
+	else
+	{
+		// スティックの傾きが0の場合の例外処理
+		vStickTiltFromCam = vPosOrign;
+	}
 
 #endif
 
-
 	// カメラのビュー行列を元に戻す
 	SetCameraViewMatrix( MSaveViewMat );
-
-	// 大きさはオリジナルのスティックの傾きを使用
-	vStickTiltFromCam = m_pVirCntrl->m_vStickL.toVector3D().len() * vSteeringForceDir;
 
 	// 計算時のゲームステップ数を保存
 	LastGameStep = m_lGameStepCounter;
@@ -215,20 +249,71 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 
 };
 
+Vector3D PlayerCharacterEntity::convScreenPosToXZPlane( Vector2D ScreenPos )
+{
+	Vector3D vScreenPos3D;
+	vScreenPos3D.x =  ScreenPos.x;
+	vScreenPos3D.y = -ScreenPos.y;
+
+	vScreenPos3D.z = 0.0;
+	Vector3D BgnPos = ConvScreenPosToWorldPos( vScreenPos3D.toVECTOR() );
+	vScreenPos3D.z = 1.0;
+	Vector3D EndPos = ConvScreenPosToWorldPos( vScreenPos3D.toVECTOR() );
+	Vector3D vCrossPos;
+	int rtn = calcCrossPointWithXZPlane( BgnPos, EndPos, vCrossPos ); // これは、厳密にはキャラクタ水平面ではないので、ジャンプすると不正確。修正が必要★
+	vCrossPos.y = 0; // 安易な対処法
+
+	return vCrossPos;
+}
+
 void PlayerCharacterEntity::DBG_renderMovementDirFromStick()
 {
 	// デバック用
 	// （Entity平面上に投影した）スティックの傾きの位置を描画
 	static PlaneRing RingIns( 
-		0.6, 0.4, 16, 
-		GetColorU8(255,   0,   0, 0 ),
-		GetColorU8(255, 255, 255, 0 ) );
+		0.6, 0.4, 16 );
 	RingIns.setCenterPos( DBG_m_vStickPos );
 	RingIns.Render(); 
 
 };
 
+// アナログスティックの傾きとEntityの向きを描画
+void PlayerCharacterEntity::DBG_renderStickTiltAndHeading( Vector2D RenderPos )
+{
+	static double RenderRadius = 25.0;
+	static int    Cyan   = GetColor( 0, 255, 255 );
+	static int    Yellow = GetColor( 255, 255, 0 );
+	static VirtualController::RenderStickTrajectory StickTrj(Vector2D(0.0,0.0), RenderRadius );
 
+	// 切返しの方向を描画
+	if( m_pCurrentState == OneEightyDegreeTurn::Instance() )
+	{
+		Vector2D TurnDir = RenderRadius * DBG_m_vTurnDestination.normalize().toVector2D().reversY();
+		DrawLine2D( RenderPos.toPoint(), (RenderPos+TurnDir).toPoint(), Yellow, 3 );
+	}
+
+	// アナログスティックの状態を描画
+	Vector3D StickPos = calcMovementDirFromStick();
+	StickTrj.Render( StickPos.toVector2D(), RenderPos );
+
+	// Entityの向きを描画
+	Vector2D VelDir = RenderRadius * DBG_m_vVelocitySave.normalize().toVector2D().reversY();
+	DrawLine2D( RenderPos.toPoint(), (RenderPos+VelDir).toPoint(), Cyan );
+	
+
+};
+
+// 退避させておいた物理情報の更新
+void PlayerCharacterEntity::DBG_UpdateSavePhys()
+{
+	DBG_m_vVelocitySave = m_vVelocity;
+};
+
+// 今のState名を取得
+string PlayerCharacterEntity::DBG_getCurrentStateName()
+{ 
+	return m_pCurrentState->getStateName(); 
+};
 
 
 // ##### AnimUniqueInfoManager #####
@@ -367,6 +452,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	//pAnimUnq->m_fAnimStartTime      = 10.0f; 
 	pAnimUnq->m_fAnimStartTime      = 20.0f; 
 	pAnimUnq->m_fAnimEndTime        = 41.0f; 
+	//pAnimUnq->m_fAnimEndTime        = 38.0f; 
 	//pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
 
 	// --------- BreakAndTurn --------- 

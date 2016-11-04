@@ -162,16 +162,6 @@ public:
 		return tmp;
 	};
 	
-	// ２つのベクトルの外積を計算する = vec1 × vec2
-	static Vector3D cross( const Vector3D &vec1, const Vector3D &vec2 )
-	{
-		Vector3D tmp;
-		tmp.x = vec1.y*vec2.z - vec1.z*vec2.y;
-		tmp.y = vec1.z*vec2.x - vec1.x*vec2.z;
-		tmp.z = vec1.z*vec2.y - vec1.y*vec2.x;
-		return tmp;
-	}
-
 	// ベクトル vec が与えられたとき、this と vec の作る平面において 
 	// vec 側の向きを向いた（ i.e. vec*this > 0 となる ）this に直行する単位ベクトルを返す。
 	Vector3D getOrthoVec( const Vector3D &vec );
@@ -220,6 +210,16 @@ inline Vector3D operator/( const Vector3D &vec , const double scr )
 {
 	Vector3D tmp(vec);
 	tmp /= scr;
+	return tmp;
+};
+
+// ２つのベクトルの外積を計算する = vec1 × vec2
+inline Vector3D operator*( const Vector3D &vec1, const Vector3D &vec2 )
+{
+	Vector3D tmp;
+	tmp.x = vec1.y*vec2.z - vec1.z*vec2.y;
+	tmp.y = vec1.z*vec2.x - vec1.x*vec2.z;
+	tmp.z = vec1.z*vec2.y - vec1.y*vec2.x;
 	return tmp;
 };
 

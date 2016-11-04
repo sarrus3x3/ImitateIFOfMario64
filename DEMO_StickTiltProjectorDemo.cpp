@@ -187,15 +187,22 @@ StickTiltProjectorDemo::StickTiltProjectorDemo(
 			m_vModelCamGazePoint( vModelCamGazePoint ),
 			m_dModelCamNearClipDist( dModelCamNearClipDist ),
 			m_vPlayerPos( vPlayerPos ),
+			m_vStickTiltOnScreen( Vector3D( 1.0, 0.0, 0.0 ).normalize() ),
+			//m_vStickTiltOnScreen( Vector3D( 1.0, 0.0, 0.0 ).normalize() ),
 			m_ScPlane( ScreenPlane( 5.0, 5.0, 3.0 ) ),
-			m_StickTrackOnScreen( LineFreeCycle( m_iStickTrackDivNum, GlobalLineColor) ),
-			m_StickTrackProjection( LineFreeCycle( m_iStickTrackDivNum, GlobalLineColor) ),
+			m_dGridRangeOnScreen( 3.0 ),
+			m_StickTrackOnScreen( LineFreeCycle( m_iStickTrackDivNum, GetColor(0,0,255)) ),
+			m_StickTrackProjection( LineFreeCycle( m_iStickTrackDivNum, GetColor(255,0,0)) ),
 			m_StickTrackProjectionNormalize( LineFreeCycle( m_iStickTrackDivNum, GlobalLineColor) ),
 			m_vVertiStickTiltDirBgn( YPlusDir.rot( -AngeSize ) ),
 			m_vVertiStickTiltDirEnd( YPlusDir.rot(  AngeSize ) ),
 			m_vHorizStickTiltDirBgn( XPlusDir.rot( -AngeSize ) ),
 			m_vHorizStickTiltDirEnd( XPlusDir.rot(  AngeSize ) )
 {
+	// 関数ポインタへ代入
+	fpCalcStickTiltPosProjection = &StickTiltProjectorDemo::calcStickTiltPos_RigidTrans;
+	//fpCalcStickTiltPosProjection = &StickTiltProjectorDemo::calcStickTiltPos_HomogTrans;
+
 	// カメラモデルの読み込み
 	m_iModelCamHandle = MV1LoadModel( "..\\mmd_model\\Camera\\カメラ.x" );
 
@@ -239,6 +246,9 @@ StickTiltProjectorDemo::StickTiltProjectorDemo(
 	// ## （スティックの傾きから）計算されたキャラクタの進行方向（を図示する扇形）を計算する
 	UpdateSectorCharactrMoveDir();
 
+	// ## 演出用グリッドの初期化
+	UpdateGrids();
+
 }
 
 void StickTiltProjectorDemo::UpdateTransMats()
@@ -249,23 +259,36 @@ void StickTiltProjectorDemo::UpdateTransMats()
 	Vector3D Ysc = (m_vModelCamGazePoint-m_vModelCamPos).normalize();
 
 	// x'軸 = カメラの上方向をy軸正方向
-	double sgn = -1.0 * (double)( (Ysc.x>0) - (Ysc.x<0) );
-	Vector3D Xsc( sgn*Ysc.y, fabs(Ysc.x), 0 );
+	Vector3D Xsc( 0, 1.0, 0 );
 
 	// z'軸 = x' × y' → この規則が間違っている？？ DEMO_DashTurnBehavior.h をみる
-	//Vector3D Zsc = VCross( Xsc.toVECTOR(), Ysc.toVECTOR() );
-	Vector3D Zsc = VCross( Ysc.toVECTOR(), Xsc.toVECTOR() );
+	Vector3D Zsc = VCross( Ysc.toVECTOR(), Xsc.toVECTOR() ); // 標準座標系を反転していることに注意
+	Zsc = Zsc.normalize();
+
+	// x'軸 の補正
+	Xsc = VCross( Zsc.toVECTOR(), Ysc.toVECTOR() ); // 標準座標系を反転していることに注意
 
 	// mModelCamLocalToWorld の計算
 	mModelCamLocalToWorld = 
 		MGetAxis1( 
 			Xsc.toVECTOR(),
 			Ysc.toVECTOR(),
-			Zsc.toVECTOR(),
+			(-1*Zsc).toVECTOR(), // 座標系が反転しているため
 			m_vModelCamPos.toVECTOR() );
 
 	// mModelCamWorldToLocal の計算
 	mModelCamWorldToLocal = MInverse( mModelCamLocalToWorld );
+
+	// mModelCamViewMat の計算（説明用カメラのビュー行列）
+	MATRIX mModelCamViewMatBase =
+		MGetAxis1( 
+			(-1*Zsc).toVECTOR(), // 座標系を保つためには向きを反転させる必要あり
+			Xsc.toVECTOR(), // y方向相当
+			Ysc.toVECTOR(), // z方向相当（カメラの向き）
+			m_vModelCamPos.toVECTOR() );
+
+	mModelCamViewMat = MInverse( mModelCamViewMatBase );
+	//mModelCamViewMat = mModelCamViewMatBase;
 
 	// ワールド座標におけるスクリーン座標中心位置の計算
 	Vector3D vScreenCntPos = m_dModelCamNearClipDist*Ysc + m_vModelCamPos; 
@@ -281,11 +304,36 @@ void StickTiltProjectorDemo::UpdateTransMats()
 	// mScreenWorldToLocal の計算
 	mScreenWorldToLocal = MInverse( mScreenLocalToWorld );
 
+	// mScreenPosRigidTrans の計算（カメラからみた上方向を保ってスクリーン座標→ローカル座標へ剛体返還）
+	Vector3D vScUpper( 0.0, 0.0, 1.0 );
+	Vector3D vBaseY( 0.0, 1.0, 0.0 );
+	Vector3D vBaseZ, vOrign;
+	Vector3D vScUpperWorld, vScUpperProj;
+	
+	vScUpperWorld = VTransform( vScUpper.toVECTOR(), mScreenLocalToWorld );
+	calcCrossPointWithXZPlane( m_vModelCamPos, vScUpperWorld, vScUpperProj );
+	calcCrossPointWithXZPlane( m_vModelCamPos, vScreenCntPos, vOrign );
+
+	vBaseZ = (vScUpperProj-vOrign).normalize();
+	//Vector3D vBaseX = vBaseY * vBaseZ ; 
+	// ↑ なぜかコンパイルエラーになる。原因はわからない... ホラーだ。
+	Vector3D vBaseX = VCross( vBaseY.toVECTOR(), vBaseZ.toVECTOR() ) ;  // 仕方がないので、dxライブラリの組込み関数を使う...
+
+	mScreenPosRigidTrans = MGetAxis1( 
+		vBaseX.toVECTOR(),
+		vBaseY.toVECTOR(),
+		vBaseZ.toVECTOR(),
+		vOrign.toVECTOR() );
+
+	// 演出のため、少し変換倍率を上げる？（投影方式と比較する時にグリッドが小さくなる）
+	mScreenPosRigidTrans = MMult( MGetScale(Vector3D(5,5,5).toVECTOR()), mScreenPosRigidTrans ); // 5倍に拡大
+
+	m_vScreenCntPosOnScreen      = vScreenCntPos;
+	m_vScreenCntPosOnEntityPlane = vOrign;
+
 	// 一度、ちゃんと変換されているか、見てみるか。
 	DrawCoordi( mModelCamLocalToWorld, 2.0 );
 	DrawCoordi( mScreenLocalToWorld, 2.0 );
-	// 良さそうだ
-
 
 };
 
@@ -316,7 +364,7 @@ void StickTiltProjectorDemo::UpdateGeoPoss()
 	
 	for( int i=0; i<m_iStickTrackDivNum; i++)
 	{
-		calcStickTiltPosProjection( 
+		(this->*fpCalcStickTiltPosProjection)( 
 			StickTrackForScLocal.editVertexes()[i],
 			m_StickTrackOnScreen.editVertexes()[i],
 			m_StickTrackProjection.editVertexes()[i]
@@ -333,13 +381,13 @@ void StickTiltProjectorDemo::UpdateGeoPoss()
 
 	for( int i=0; i<m_pVertiSectorOnScreen->getAllVertexNum(); i++)
 	{
-		calcStickTiltPosProjection( 
+		(this->*fpCalcStickTiltPosProjection)( 
 			m_pVertiSectorOnScreen->editVertexes()[i],
 			m_pVertiSectorOnScreen->editVertexes()[i],
 			m_pVertiSectorProjection->editVertexes()[i]
 		);
 
-		calcStickTiltPosProjection( 
+		(this->*fpCalcStickTiltPosProjection)( 
 			m_pHorizSectorOnScreen->editVertexes()[i],
 			m_pHorizSectorOnScreen->editVertexes()[i],
 			m_pHorizSectorProjection->editVertexes()[i]
@@ -360,7 +408,7 @@ void StickTiltProjectorDemo::UpdateGeoPoss()
 
 	Vector3D vPlayerPosProj; // vPlayerPos をxz平面に投影した位置
 	Vector3D vTmp;
-	calcStickTiltPosProjection( m_vEntiPosAsScreenForScLocal, vTmp, vPlayerPosProj );
+	(this->*fpCalcStickTiltPosProjection)( m_vEntiPosAsScreenForScLocal, vTmp, vPlayerPosProj );
 
 	double minimize = 10000; // vPlayerPosProj と 輪郭線 m_StickTrackProjection の最小距離 = m_StickTrackProjectionNormalize の半径とする。
 
@@ -384,7 +432,9 @@ void StickTiltProjectorDemo::UpdateGeoPoss()
 }
 
 // スティックの傾きの方向（x-z平面上）→ ワールx-z平面上へ投影した座標へ変換する関数を用意する
-void StickTiltProjectorDemo::calcStickTiltPosProjection(
+// * 射影変換 HomogTrans （ホモグラフィ変換）
+//   旧版。画面スクリーンに投影したスティックの傾き方向をEntityの平面に投影する
+void StickTiltProjectorDemo::calcStickTiltPos_HomogTrans(
 	Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
 	Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
 	Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
@@ -405,6 +455,24 @@ void StickTiltProjectorDemo::calcStickTiltPosProjection(
 
 
 };
+
+// * 剛体変換 RigidTrans
+//   改良版。上方向の向きだけを見た目と合せ、角度を保存して変換する。
+void StickTiltProjectorDemo::calcStickTiltPos_RigidTrans(
+	Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
+	Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
+	Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
+	)
+{
+	// 上記位置をワールド座標に変換 ← スクリーン上スティック傾き方向位置
+	vStickTiltPosForWorld = VTransform( vStickTiltPosForScLocal.toVECTOR(), mScreenLocalToWorld );
+
+	// Entity平面上の座標を変換行列から計算
+	vStickTiltPosProjection = VTransform( vStickTiltPosForScLocal.toVECTOR(), mScreenPosRigidTrans );
+
+
+};
+
 
 // カメラモデルを描画
 void StickTiltProjectorDemo::RenderModelCamera()
@@ -435,7 +503,7 @@ void StickTiltProjectorDemo::RenderScreen()
 void StickTiltProjectorDemo::RenderAuxiliaryLines()
 {
 	// スクリーン上のキャラクタ位置
-	DrawSphere3D( m_vEntiPosAsScreenForWorld.toVECTOR() , 0.3f, 16, GetColor( 255,0,0 )  , GetColor( 0,0,0 ), TRUE ) ;
+	//DrawSphere3D( m_vEntiPosAsScreenForWorld.toVECTOR() , 0.3f, 16, GetColor( 255,0,0 )  , GetColor( 0,0,0 ), TRUE ) ;
 		
 	// スクリーン上のスティック傾き位置の描画
 	//DrawSphere3D( vStickTiltPos.toVECTOR()    , 0.3f, 16, GetColor( 0,0,255 )  , GetColor( 0,0,0 ), TRUE ) ;
@@ -451,8 +519,19 @@ void StickTiltProjectorDemo::RenderAuxiliaryLines()
 
 
 	// カメラ視線
-	DrawLine3D( m_vModelCamPos.toVECTOR(), m_vModelCamGazePoint.toVECTOR(), GetColor( 0,255,255 ) );
+	DrawLine3D( m_vModelCamPos.toVECTOR(), m_vModelCamGazePoint.toVECTOR(), GetColor( 255,0,255 ) );
 
+	// モデルカメラ視点 - スクリーン上のスティック傾き位置 を通る線を、キャラクタ平面まで引く。
+	// （改善方式の説明用。）
+	Vector3D vOnEntiPlane;
+	Vector3D vOnScreen; // これはダミー
+	calcStickTiltPos_HomogTrans( 
+		m_dGridRangeOnScreen*m_vStickTiltOnScreen, 
+		vOnScreen,
+		vOnEntiPlane
+		);
+
+	DrawLine3D( m_vModelCamPos.toVECTOR(), vOnEntiPlane.toVECTOR(), GetColor( 255,0,255 ) );
 
 };
 
@@ -553,8 +632,8 @@ void StickTiltProjectorDemo::UpdateSectorCharactrMoveDir()
 
 	Vector3D vVertiCharactrMoveDirBgn;
 	Vector3D vVertiCharactrMoveDirEnd;
-	calcStickTiltPosProjection( m_vVertiStickTiltDirBgn.toVector3D(), vTmp, vVertiCharactrMoveDirBgn );
-	calcStickTiltPosProjection( m_vVertiStickTiltDirEnd.toVector3D(), vTmp, vVertiCharactrMoveDirEnd );
+	(this->*fpCalcStickTiltPosProjection)( m_vVertiStickTiltDirBgn.toVector3D(), vTmp, vVertiCharactrMoveDirBgn );
+	(this->*fpCalcStickTiltPosProjection)( m_vVertiStickTiltDirEnd.toVector3D(), vTmp, vVertiCharactrMoveDirEnd );
 	m_pVertiSectorCharactrMoveDir = new SectorFigure2D( 
 		SectorRadius, 
 		vVertiCharactrMoveDirBgn.toVector2D(), 
@@ -563,8 +642,8 @@ void StickTiltProjectorDemo::UpdateSectorCharactrMoveDir()
 
 	Vector3D vHorizCharactrMoveDirBgn;
 	Vector3D vHorizCharactrMoveDirEnd;
-	calcStickTiltPosProjection( m_vHorizStickTiltDirBgn.toVector3D(), vTmp, vHorizCharactrMoveDirBgn );
-	calcStickTiltPosProjection( m_vHorizStickTiltDirEnd.toVector3D(), vTmp, vHorizCharactrMoveDirEnd );
+	(this->*fpCalcStickTiltPosProjection)( m_vHorizStickTiltDirBgn.toVector3D(), vTmp, vHorizCharactrMoveDirBgn );
+	(this->*fpCalcStickTiltPosProjection)( m_vHorizStickTiltDirEnd.toVector3D(), vTmp, vHorizCharactrMoveDirEnd );
 	m_pHorizSectorCharactrMoveDir = new SectorFigure2D( 
 		SectorRadius, 
 		vHorizCharactrMoveDirBgn.toVector2D(), 
@@ -586,6 +665,80 @@ void StickTiltProjectorDemo::UpdateSectorCharactrMoveDir()
 
 };
 
+// 演出用グリッドの初期化
+void StickTiltProjectorDemo::UpdateGrids()
+{
+	// グリッドのインスタンス化
+	m_pGridOriginal = new GroundGrid( m_dGridRangeOnScreen, 8, 0 );
+	m_pGridOnScreen = new GroundGrid( 5.0, 8, GetColor(0,0,255) );
+	m_pGridGrandPrj = new GroundGrid( 5.0, 8, GetColor(255,0,0) );
+
+	// 矢印のインスタンス化
+	m_pArrowToStickTiltOnEntityPlane = new Arrow3D( 2,   5, 1.6, GetColorF(1.0, 0.0, 0.0, 0.0) );
+	//m_pArrowToStickTiltOnScreen      = new Arrow3D( 0.5, 0.4, 0.1, GetColorF(0.0, 0.0, 1.0, 0.0) ); // カメラ視線用
+	m_pArrowToStickTiltOnScreen      = new Arrow3D( 1,   2.5, 0.8, GetColorF(0.0, 0.0, 1.0, 0.0) );  // 俯瞰図用
+
+	// スクリーン上及びにキャラクタ平面へ投影したグリッドを計算
+	for( int i=0; i<m_pGridOriginal->m_iMaxVectorNum; i++ )
+	{
+		(this->*fpCalcStickTiltPosProjection)( 
+			m_pGridOriginal->editVertexes(i),
+			m_pGridOnScreen->editVertexes(i),
+			m_pGridGrandPrj->editVertexes(i) );
+	}
+
+	// スクリーン上及びにキャラクタ平面へ投影した矢印を計算
+	Vector3D vOrign( 0, 0, 0 );
+
+	// 始点の計算
+	(this->*fpCalcStickTiltPosProjection)( 
+		vOrign,
+		m_vArrowBgnScreen,
+		m_vArrowBgnEntPln );
+
+	// 終点の計算
+	(this->*fpCalcStickTiltPosProjection)( 
+		m_dGridRangeOnScreen*m_vStickTiltOnScreen,
+		m_vArrowEndScreen,
+		m_vArrowEndEntPln );
+
+};
+
+// スクリーン上のグリッドを描画
+void StickTiltProjectorDemo::RenderGridOnScreen()
+{
+	// グリッドの描画
+	m_pGridOnScreen->Render();
+
+	// 矢印の描画
+	Vector3D vUpper( 0.0, 1.0, 0.0 );
+	vUpper = VTransform( vUpper.toVECTOR(), mScreenLocalToWorld );
+	m_pArrowToStickTiltOnScreen->Render(
+		m_vArrowBgnScreen,
+		m_vArrowEndScreen,
+		vUpper);
+
+};
+
+// Entity平面に投影したグリッドを描画
+void StickTiltProjectorDemo::RenderGridGrandPrj()
+{
+	// グリッドの描画
+	m_pGridGrandPrj->Render();
+
+	// 矢印の描画
+	Vector3D vUpper( 0.0, 1.0, 0.0 );
+	m_pArrowToStickTiltOnEntityPlane->Render(
+		m_vArrowBgnEntPln,
+		m_vArrowEndEntPln,
+		vUpper);
+
+	// なんかおかしい
+	//DrawCoordi( m_vArrowEndEntPln, 2.0 );
+	//DrawSphere3D( m_vArrowEndEntPln.toVECTOR() , 0.3f, 16, GetColor( 255,0,0 )  , GetColor( 0,0,0 ), TRUE ) ;
+	//DrawSphere3D( m_vArrowBgnEntPln.toVECTOR() , 0.3f, 16, GetColor( 0,255,0 )  , GetColor( 0,0,0 ), TRUE ) ;
+
+};
 
 
 

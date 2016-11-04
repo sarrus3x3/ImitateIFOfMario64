@@ -1,3 +1,5 @@
+#include <fstream> /// saveViewMatrix, loadViewMatrix で使用。
+
 #include "DxLib.h"
 
 #include "Vector3D.h"
@@ -23,6 +25,9 @@ CameraWorkManager::CameraWorkManager() :
 	m_vFinalCamPos = Vector3D(0,m_dCamHight,0);
 	m_TargetPos    = Vector3D(0,0,0);
 	
+	// カメラのビュー行列を外部ファイルから変数に読み込む
+	loadViewMatrix();
+
 }
 
 CameraWorkManager* CameraWorkManager::Instance()
@@ -96,9 +101,15 @@ void CameraWorkManager::Update( double timeslice )
 	case RotateCamOnGazePoint:
 		Update_RotateCamOnGazePoint( timeslice );
 		break;
+
 	case TrackingMovingTarget:
 		Update_TrackingMovingTarget( timeslice );
 		break;
+
+	case SetSavedViewMatrix:
+		Update_SetSavedViewMatrix();
+		break;
+
 	default:
 		break;
 	}
@@ -202,7 +213,7 @@ void CameraWorkManager::Update_RotateCamOnGazePoint( double timeslice )
 	m_MViewLocal = MInverse( MCamTransMatLocal );
 	m_MViewWorld = MInverse( MCamTransMatWorld );
 	
-	// 背景パノラマ球の描画に使用しているため
+	// 背景パノラマ球の描画に使用しているため m_vFinalCamPos を参照している
 	m_vFinalCamPos = VTransform( Vector3D( 0,0,0 ).toVECTOR(), MCamTransMatWorld );
 };
 
@@ -224,6 +235,11 @@ void CameraWorkManager::Update_TrackingMovingTarget( double timeslice )
 	m_vFinalTargetPos = m_TargetPos;
 	m_vFinalTargetPos.y += m_TrgtHight;
 
+};
+
+void CameraWorkManager::Update_SetSavedViewMatrix()
+{
+	m_MViewWorld = m_MSaveViewWorld;
 };
 
 void CameraWorkManager::setCamera()
@@ -248,8 +264,59 @@ std::string CameraWorkManager::getCurCamModeName()
 	case TrackingMovingTarget:
 		str = "TrackingMovingTarget";
 		break;
+	case SetSavedViewMatrix:
+		str = "SetSavedViewMatrix";
+		break;
+
 	default:
 		break;
 	}
 	return str; // これで動くのか...？
 };
+
+
+// カメラのビュー行列を保存（外部ファイルへの書出し＆変数に保持）
+void CameraWorkManager::saveViewMatrix( MATRIX mViewMat )
+{
+	m_MSaveViewWorld = mViewMat;
+
+	std::ofstream ofs( "CameraWorkManager-SaveViewMatrix.txt" );
+
+	for( int i=0; i<4; i++)
+	{
+		for( int j=0; j<4; j++ )
+		{
+			ofs << m_MSaveViewWorld.m[i][j] << std::endl;
+		}
+	}
+
+};
+
+// カメラのビュー行列を外部ファイルから変数に読み込む
+void CameraWorkManager::loadViewMatrix()
+{
+	//ファイルの読み込み
+	ifstream ifs("CameraWorkManager-SaveViewMatrix.txt");
+	if(!ifs)
+	{
+		// ファイル読込に失敗（あるいはファイルそのものがなければ）スルー
+		return ;
+	}
+
+	for( int i=0; i<4; i++)
+	{
+		for( int j=0; j<4; j++ )
+		{
+			//1行ずつ読み込む
+			string str;
+			getline(ifs,str);
+
+			// 数値(float)に変換
+			float tmp=stof(str); 
+			m_MSaveViewWorld.m[i][j] = tmp;
+
+		}
+	}
+
+};
+

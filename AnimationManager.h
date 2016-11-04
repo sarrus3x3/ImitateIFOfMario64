@@ -183,7 +183,6 @@ public:
 
 	void setBankAngle( double bankangle ){ m_dBankAngle = bankangle; }; // バンク角の設定
 
-	//void setAnimPlayTime( float playtime ){ m_pCurAnimPlayInfo->m_CurPlayTime = playtime; }; // アニメーションを任意の再生時間に設定
 
 	// ----- アニメーションのセット（各Entity Classで定義されるアニメーション固有enumを指定）
 	// ブレンド指定する場合は、引数に、ブレンド時間（デフォルト0）、現在のアニメーションの停止要否（デフォルト要）を設定
@@ -292,6 +291,9 @@ public:
 	float DBG_getPrvAnimPlayTime(){ return m_pPrvAnimPlayInfo->m_CurPlayTime; }; 
 
 	bool DBG_m_bBlendPauseOn; // アニメーションブレンディングの一時停止
+
+	//void DBG_setAnimPlayTime( float playtime ){ m_pCurAnimPlayInfo->m_CurPlayTime = playtime; }; // アニメーションを任意の再生時間に設定
+
 
 
 };

@@ -1,6 +1,9 @@
 #include<vector>
 
-//#include "Vector3D.h"
+#include "DxLib.h"
+
+#include "Vector2D.h"
+#include "Vector3D.h"
 
 #pragma once
 
@@ -85,4 +88,31 @@ public:
 
     return sum / (double)m_History.size();
   }
+};
+
+// ################## ï`âÊÇÃÇΩÇﬂÇÃï‚èïä÷êî #######################
+
+inline int DrawLine2D( Point2D bgn, Point2D end, unsigned int Color, int Thickness=1 )
+{
+	return DrawLine( bgn.x, bgn.y, end.x, end.y, Color, Thickness );
+};
+
+inline int DrawCircle2D( Point2D cnt, int r, unsigned int Color, int FillFlag = TRUE )
+{
+	return DrawCircle( cnt.x, cnt.y, r, Color, FillFlag );
+};
+
+inline int DrawBox2D( Point2D TL, Point2D BR, unsigned int Color, int FillFlag = TRUE )
+{
+	return DrawBox( TL.x, TL.y, BR.x+1, BR.y+1, Color, FillFlag );
+};
+
+inline int DrawTriangle2D( Point2D V1, Point2D V2, Point2D V3, unsigned int Color, int FillFlag = TRUE )
+{
+	return DrawTriangle( 
+		V1.x, V1.y,
+		V2.x, V2.y, 
+		V3.x, V3.y, 
+		Color ,
+		FillFlag ) ;
 };

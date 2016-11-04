@@ -469,9 +469,7 @@ void AnimationManager::DrawAllow3D( Vector3D cnt, Vector3D heading )
 
 	// —Ö‚Á‚©‚ð•`‚­
 	static PlaneRing RingIns( 
-		5.5, 1.25, 32, 
-		GetColorU8(255,   0,   0, 0 ),
-		GetColorU8(255, 255, 255, 0 ) );
+		5.5, 1.25, 32  );
 	RingIns.setCenterPos( cnt );
 	RingIns.Render(); 
 

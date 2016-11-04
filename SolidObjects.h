@@ -183,6 +183,7 @@ private:
 	int    m_iGridNum;   // グリッド数
 	// 原点を中心に、x軸、y軸 : [-m_dGridRange, m_dGridRange] の範囲にグリッドを描画する
 	int    m_iColor;     // グリッドの色
+	int    m_iGridLinesNum;  // 構成する線分の個数（同じ方向分）
 
 	// 直線の構造体
 	struct LINE
@@ -202,71 +203,38 @@ public:
 		int    Color		// グリッドの色
 		);
 
+	// 頂点を直接編集するためのインターフェス
+	Vector3D& editVertexes( int VectorIndex );
+	int m_iMaxVectorNum;
+
 	// 描画
 	void Render();
 
 };
 
-// ############### 平面輪っか ###############
-class PlaneRing
+// ############### 平面図形の基底クラス ###############
+class BasePlaneFigure
 {
-private:
-	VERTEX3D* m_pVertex; // ポリゴン集合を保持
-	int m_iPolygonNum;   // ポリゴン数
-
-	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
-	Vector3D  m_vCntPos;       // 球の中心位置 
-	MATERIALPARAM m_Material;         // マテリアルパラメータ
-	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
-
-public:
-	// コンストラクタ
-	PlaneRing( 
-		double    Radius,           // 輪の半径（内径）
-		double    Width,			// 輪の幅 
-		int       DivNum,           // 分割数
-		COLOR_U8  DifColor,			// 頂点ディフューズカラー
-		COLOR_U8  SpcColor			// 球の頂点スペキュラカラー
-		);
-
-	// 描画
-	void Render();
-
-	// 中心位置の設定（更新）
-	void setCenterPos( Vector3D CntPos );
-
-};
-
-// ############### 平面上凸形図形・塗りつぶし ###############
-class PlaneConvexFill
-{
-private:
+protected:
 	VERTEX3D* m_pVertex; // ポリゴン集合を保持
 	int m_iPolygonNum;   // ポリゴン数
 
 	Vector3D* m_pRawVertexPos; // VERTEX生成後に中心位置シフトに対応するためオリジナルの頂点位置情報を保持する
 	Vector3D* m_pRawVertexNrm; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に、法線
 
-	//Vector3D* m_pOutLineVertexes;  // 輪郭線の頂点情報
-
 	MATERIALPARAM m_Material;         // マテリアルパラメータ
 	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
+	
+	// Zバッファを使用するかのフラグ
+	bool m_bUseZBuffer;
 
 public:
 	// コンストラクタ
-	PlaneConvexFill( 
-		Vector2D  *pVertex2D,       // 凸形図形の輪郭頂点の配列
-		int       DivNum,           // 分割数（頂点数）
-		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
+	BasePlaneFigure( 
+		int       PolygonNum,       // ポリゴン（三角形）数
+		COLOR_F   EmissivColor,     // オブジェクトの色（自己発光色）
+		bool      UseZBuffer        // Zバッファを使用するか？
 		);
-
-	// コンストラクタ（輪郭頂点の配列の指定なし）
-	PlaneConvexFill( 
-		int       DivNum,           // 分割数（頂点数）
-		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
-		);
-
-	// 光沢なしの塗りつぶしは、「平面輪っか」オブジェクトを参考にする。
 
 	// 頂点を編集 <- 法線方向は調整できないので注意。今回はレンダリングを自己発光にするので不都合はないが...
 	Vector3D* editVertexes(){ return m_pRawVertexPos; };
@@ -283,7 +251,42 @@ public:
 	// 与えられた行列 Mat で m_pVertex を変換
 	void MatTransVertex( const MATRIX &Mat );
 
-	
+
+};
+
+
+// ############### 平面輪っか ###############
+class PlaneRing : public BasePlaneFigure
+{
+private:
+	Vector3D  m_vCntPos;       // 球の中心位置 
+
+public:
+	// コンストラクタ
+	PlaneRing( 
+		double    Radius,           // 輪の半径（内径）
+		double    Width,			// 輪の幅 
+		int       DivNum            // 分割数
+		);
+
+	// 中心位置の設定（更新）
+	void setCenterPos( Vector3D CntPos );
+
+};
+
+// ############### 平面上凸形図形・塗りつぶし ###############
+
+// BasePlaneFigure の継承に書き直す...
+
+class PlaneConvexFill : public BasePlaneFigure
+{
+public:
+	// コンストラクタ
+	PlaneConvexFill( 
+		Vector2D  *pVertex2D,       // 凸形図形の輪郭頂点の配列
+		int       DivNum,           // 分割数（頂点数）
+		COLOR_F   EmissivColor      // オブジェクトの色（自己発光色）
+		);
 
 };
 
@@ -383,3 +386,34 @@ public:
 	// 与えられた行列 Mat で m_pVertex を変換
 	void MatTransVertex( const MATRIX &Mat );
 };
+
+// ############### ３Ｄ矢印 ###############
+class Arrow3D
+{
+private:
+	VERTEX3D* m_pVertex; // ポリゴン集合を保持
+	int m_iPolygonNum;   // ポリゴン数
+
+	MATERIALPARAM m_Material;         // マテリアルパラメータ
+	MATERIALPARAM m_MaterialDefault;  // マテリアルパラメータ（デフォルト）
+
+	// 矢印のパラメータ
+	double m_dArwHight; // 矢印の矢の部分の高さ
+	double m_dArwWidth; // 矢印の矢の部分の幅
+	double m_dBdyWidth; // 矢印の棒の部分の幅
+
+public:
+
+	// コンストラクタ
+	Arrow3D( 
+		double    ArrowHight, 
+		double    ArrowWidth, 
+		double    BodyWidth, 
+		COLOR_F   EmissivColor
+		);
+
+	// 描画
+	void Render( Vector3D vBgn, Vector3D vEnd, Vector3D vUpper );
+
+};
+

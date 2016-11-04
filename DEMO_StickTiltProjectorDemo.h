@@ -1,3 +1,5 @@
+//#include <functional>
+
 #include "DxLib.h"
 
 #include "..\\ImitateIFOfMario64\\Vector3D.h"
@@ -116,7 +118,7 @@ public:
 	double   m_dModelCamNearClipDist; // 説明用カメラのクリップ距離
 	Vector3D m_vPlayerPos;            // （操作する）キャラクタの位置
 
-	//Vector3D m_vStickTilt; // スティックの傾きの方向（x-z平面上）
+	Vector3D m_vStickTiltOnScreen; // スティックの傾きの方向（x-z平面上）
 
 	static double SectorRadius;
 	static double AngeSize;
@@ -139,6 +141,9 @@ public:
 	// スクリーンオブジェクト
 	ScreenPlane m_ScPlane;
 
+	// スクリーン上に描画するグリッドの範囲
+	double m_dGridRangeOnScreen;
+
 	// コンストラクタ
 	StickTiltProjectorDemo(
 		Vector3D vModelCamPos,          // 説明用カメラの位置
@@ -147,18 +152,20 @@ public:
 		Vector3D vPlayerPos             // （操作する）キャラクタの位置
 		);
 
+	// カメラのビュー行列を取得する
+	MATRIX getViewMatrix(){ return mModelCamViewMat; }; // ビュー行列はカメラのローカル座標行列の逆行列である。
+
+	// 計算されたEntityの進行方向を取得する
+	// ※ UpdateGrids() の中で計算されることに注意
+	Vector3D getEntityMoveDir(){ return (m_vArrowEndEntPln - m_vArrowBgnEntPln).normalize(); };
+
+	// ##### Update 系 関数 #####
+
 	// モデルステータスから座標変換行列を更新
 	void UpdateTransMats();
 
 	// モデルステータスから幾何的座標位置を更新
 	void UpdateGeoPoss();
-
-	// スティックの傾きの方向（x-z平面上）→ ワールx-z平面上へ投影した座標へ変換する関数を用意する
-	void calcStickTiltPosProjection(
-		Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
-		Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
-		Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
-		);
 
 	// スクリーン上の円と、それをxz平面上に投影した図形の配列を更新する
 	void UpdateScreenCircleProjection();
@@ -168,6 +175,9 @@ public:
 	
 	// （スティックの傾きから）計算されたキャラクタの進行方向（を図示する扇形）の初期化
 	void UpdateSectorCharactrMoveDir();
+
+	// 演出用グリッドの初期化
+	void UpdateGrids();
 
 
 	// ##### Draw 系 関数 #####
@@ -190,6 +200,8 @@ public:
 	// ③ ②を投影平面上で正規化した正円の描画
 	void RenderStickTrackProjectionNormalize();
 
+	// #### 変化量の扇型を表示
+
 	// モデル内に描画する３次元図形、ディスプレイ用扇形モデル、の描画
 	void RenderSectors();
 
@@ -199,7 +211,21 @@ public:
 	// （スティックの傾き）計算されたキャラクタの進行方向の変化量を表す扇型を描画
 	void RenderCharactrMoveDirVariation( Vector2D RenderPos );
 
+	// #### 変形のグリッドを表示
 
+	// スクリーン上のグリッドを描画
+	void RenderGridOnScreen();
+
+	// Entity平面に投影したグリッドを描画
+	void RenderGridGrandPrj();
+
+	// スクリーン上に、スティックの傾き方向に矢印を描画
+	//void RenderArrowToStickTiltOnScreen();
+	// → RenderGridOnScreen の中で描画する
+
+	// キャラクタ平面上に、スティックの傾き方向に矢印を描画
+	//void RenderArrowToStickTiltOnEntityPlane();
+	// → RenderGridGrandPrj の中で描画する
 
 private:
 	// スティックの軌跡の分割数
@@ -243,7 +269,6 @@ private:
 	// 水平方向の扇形
 	SectorFigure2D* m_pHorizSectorOrgStickTiltDir;
 
-
 	// ## （スティックの傾き）計算されたキャラクタの進行方向
 
 	// 垂直方向の扇形
@@ -253,9 +278,29 @@ private:
 	SectorFigure2D* m_pHorizSectorCharactrMoveDir;
 
 
+	// ### グリッド
+
+	// オリジナルのグリッド
+	GroundGrid* m_pGridOriginal;
+
+	// スクリーン上のグリッド
+	GroundGrid* m_pGridOnScreen;
+
+	// Entity平面に投影したグリッド
+	GroundGrid* m_pGridGrandPrj;
+
+	// スクリーン上に描画する、スティックの傾き方向の矢印
+	Arrow3D* m_pArrowToStickTiltOnScreen;
+
+	// キャラクタ平面上に描画する、スティックの傾き方向の矢印
+	Arrow3D* m_pArrowToStickTiltOnEntityPlane;
+
+	// 矢印の情報（Arrow3Dに一体化させておけばよかった）
+	Vector3D m_vArrowBgnScreen, m_vArrowEndScreen;
+	Vector3D m_vArrowBgnEntPln, m_vArrowEndEntPln;
 
 	// #### 各種座標変換行列
-	
+
 	// 説明用カメラのローカル→ワールド座標変換行列
 	MATRIX mModelCamLocalToWorld;
 
@@ -271,6 +316,13 @@ private:
 	// 説明用カメラの基本変換行列
 	MATRIX MatConf;
 
+	// スクリーンローカル座標→キャラクタ平面へスクリーン上方向を保ちながら剛体変換する行列（calcStickTiltPos_RigidTransで使用）
+	MATRIX mScreenPosRigidTrans;
+
+	// 説明用カメラのビュー行列（説明用カメラモデルと実際のカメラの方向が違うため、mModelCamWorldToLocalはそのまま使えない）
+	MATRIX mModelCamViewMat;
+
+
 	// #### 各種幾何的位置
 
 	// スクリーン上のキャラクタ位置（スクリーンローカル座標における）
@@ -278,6 +330,40 @@ private:
 
 	// スクリーン上のキャラクタ位置（ワールド座標における）
 	Vector3D m_vEntiPosAsScreenForWorld;
+
+	// スクリーン上の、スクリーンの中心位置（ワールド座標における）
+	Vector3D m_vScreenCntPosOnScreen;
+
+	// スクリーンの中心位置をキャラクタ平面に投影した位置
+	Vector3D m_vScreenCntPosOnEntityPlane;
+
+	// 関数の器
+	//std::function<void(Vector3D,Vector3D&,Vector3D&)> calcStickTiltPosProjection;
+
+	// 関数ポインタ
+	void (StickTiltProjectorDemo::*fpCalcStickTiltPosProjection) (
+		Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
+		);
+
+	// スティックの傾きの方向（x-z平面上）→ ワールx-z平面上へ投影した座標へ変換する関数を用意する
+
+	// * 射影変換 HomogTrans （ホモグラフィ変換）
+	//   旧版。画面スクリーンに投影したスティックの傾き方向をEntityの平面に投影する
+	void calcStickTiltPos_HomogTrans(
+		Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
+		);
+
+	// * 剛体変換 RigidTrans
+	//   改良版。上方向の向きだけを見た目と合せ、角度を保存して変換する。
+	void calcStickTiltPos_RigidTrans(
+		Vector3D vStickTiltPosForScLocal, // [IN] スクリーンローカル座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosForWorld,  // [OUT] ワールド座標におけるスティックの傾き方向位置
+		Vector3D &vStickTiltPosProjection // [OUT] xz平面上に投影したスティックの傾き方向位置（ワールド座標における）
+		);
 
 
 };

@@ -69,6 +69,8 @@ private:
 	void UpdateAsKeyBord(); // KeyBordの場合のUpdate
 	void UpdateAsGamePad(); // GamePadの場合のUpdate
 
+public:
+
 	// アナログスティック状態描画のためクラス
 	class RenderStickTrajectory
 	{
@@ -85,13 +87,17 @@ private:
 
 		// コンストラクタ
 		RenderStickTrajectory() : TrajectoryList(5), CurIndex(0) {};
+		RenderStickTrajectory( Vector2D CntPos, double Radius ) : 
+			m_vCenterPos( CntPos ), 
+			m_dRadius( Radius ), 
+			TrajectoryList(5), 
+			CurIndex(0) {};
+
 
 		// 描画
 		void Render( Vector2D CurStickPos, Vector2D RendPos );
 
 	} m_RenderStickL, m_RenderStickR;
-
-public:
 	
 	class Button
 	{
@@ -138,8 +144,8 @@ public:
 	// アナログスティック状態
 	Vector2D m_vStickL; // アナログスティック左
 	Vector2D m_vStickR; // アナログスティック右
-	double m_dTiltQuantStickL; // アナログスティック左の傾き大きさ （Updateで更新、無視閾値適用済み）
-	double m_dTiltQuantStickR; // アナログスティック右の傾き大きさ （同上）
+	double m_dStickL_len; // アナログスティック左の傾き大きさ （Updateで更新、無視閾値適用済み）
+	double m_dStickR_len; // アナログスティック右の傾き大きさ （同上）
 
 	// ＊スティック傾き情報に関する留意事項＊
 	// ・大きさ最大値=1.0に規格化、ただし、m_vStickL.lem()<1 こともある。（入力自体の大きさがリミット32767を超えることがあるため）
@@ -153,7 +159,10 @@ public:
 	// コントローラーを描画する
 	void Render( Vector2D pos );
 
+	// ##### デバッグ用
+
 	// m_XinputState の状態をデバック出力
 	void DBG_ShowXinputState();
+
 };
 

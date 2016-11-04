@@ -23,6 +23,9 @@ public:
 	// Entityの描画を処理する
 	virtual void Render(PlayerCharacterEntity*)=0;
 
+	// 自分のStateの名前を取得する
+	virtual string getStateName()=0;
+
 
 protected:
 	
@@ -50,7 +53,7 @@ public:
 	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
-
+	virtual string getStateName(){ return "Dammy"; };
 };
 
 // #### Standing ステート ####
@@ -73,6 +76,8 @@ public:
 	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
+	virtual string getStateName(){ return "Standing"; };
+
 
 };
 
@@ -113,6 +118,8 @@ public:
 	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
+	virtual string getStateName(){ return "Jump"; };
+
 
 };
 
@@ -128,12 +135,12 @@ private:
 	SurfaceMove& operator=(const SurfaceMove&);
 
 	// ##### グローバル定数
-	static const double ThresholdSpeedRunToWark;  // Running<->Warking の速度の閾値（平方値）
 	static const double ThresholdSticktiltRunToWark;   // Running<->Warking のスティック傾きの閾値
 	static const double MaxCentripetalForce;   // 旋回時の最大向心力
 	static const double ViscousRsisInert;  // 慣性推進時の粘性抵抗係数
 
 public:
+	static const double ThresholdSpeedRunToWark;  // Running<->Warking の速度の閾値（平方値）
 	static const double MaxVelocity; // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
 	static const double ViscousRsisAccel;  // 加速時の粘性抵抗係数
 
@@ -152,6 +159,8 @@ public:
 	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
+	virtual string getStateName(){ return "SurfaceMove"; };
+
 
 
 	// 補助
@@ -189,7 +198,6 @@ private:
 	static const double TurningForceSize;  // 切出し時の加速力大きさ
 	static const double BrakingForceSize;  // ブレーキ中の制動力の大きさ
 
-
 	//static const double MaxVelocity;       // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
 	//static const double ViscousRsisTurn;   // （切返し時の）粘性抵抗係数
 	//static const double ViscousRsisBreak;  // （ブレーキ時の）粘性抵抗係数
@@ -199,7 +207,10 @@ private:
 
 	// メンバ
 	Vector3D m_vVelDirBeginning; // OneEightyDegreeTurnにEnterした時の速度方向
-	Vector3D m_vTurnDestination; // 切出し動作で"発射"する方向。切出し動作開始した時のスティックの向き（規格化）が設定
+	//Vector3D m_vStickTiltBeginning; // OneEightyDegreeTurnにEnterした時のスティックの傾きを記憶。（切返しで"発射"方向を計算する時に使用）→改善実装止めた。（切返し加速時の物理計算改善したら不自然じゃなくなったので）
+	Vector3D m_vTurnDestination; // 切返し動作で"発射"する方向。切出し動作開始した時のスティックの向き（規格化）が設定
+	Vector3D m_vVelEnterTurning; // 切返し開始時の速度を記憶。（切返し中の加速度の計算に使用）
+
 
 	// サブ状態
 	enum SubStateID
@@ -224,6 +235,7 @@ public:
 	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation& );
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
+	virtual string getStateName(){ return "OneEightyDegreeTurn"; };
 
 };
 

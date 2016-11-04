@@ -1,35 +1,9 @@
 #include "VirtualController.h"
 
+#include "MyUtilities.h" // コントローラー描画のためのツール使用
+
 const int    VirtualController::iANALOG_STICK_TILT_UP_LIMIT = 32767;        // GetJoypadXInputState で取得するアナログスティックの傾きの最大値
 const double VirtualController::dANALOG_STICK_TILT_IGNORE_THRESHOLD = 0.1; // アナログスティックの傾きが十分に小さくなったときに0とみなす閾値 
-
-// ################## コントローラー描画のための補助関数 #######################
-
-int DrawLine2D( Point2D bgn, Point2D end, unsigned int Color )
-{
-	return DrawLine( bgn.x, bgn.y, end.x, end.y, Color );
-};
-
-int DrawCircle2D( Point2D cnt, int r, unsigned int Color, int FillFlag = TRUE )
-{
-	return DrawCircle( cnt.x, cnt.y, r, Color, FillFlag );
-};
-
-int DrawBox2D( Point2D TL, Point2D BR, unsigned int Color, int FillFlag = TRUE )
-{
-	return DrawBox( TL.x, TL.y, BR.x+1, BR.y+1, Color, FillFlag );
-};
-
-int DrawTriangle2D( Point2D V1, Point2D V2, Point2D V3, unsigned int Color, int FillFlag = TRUE )
-{
-	return DrawTriangle( 
-		V1.x, V1.y,
-		V2.x, V2.y, 
-		V3.x, V3.y, 
-		Color ,
-		FillFlag ) ;
-};
-
 
 // ################## VirtualController クラスのメンバ・メソッドの定義 #######################
 
@@ -105,7 +79,7 @@ VirtualController::VirtualController() :
 	ButtonRad = controllerscale * 0.5; // ボタンの半径
 
 	// アナログスティック
-	m_RenderStickL.m_dRadius = 10 * controllerscale * 1.5;  // ★
+	m_RenderStickL.m_dRadius = controllerscale * 1.5;
 	m_RenderStickR.m_dRadius = controllerscale * 1.5; 
 
 	double len = 3.5*0.5*sqrt(2.0);
@@ -284,21 +258,21 @@ void VirtualController::UpdateAsGamePad()
 	lentmp = m_vStickL.len();
 	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
 	{
-		m_dTiltQuantStickL = 0.0;
+		m_dStickL_len = 0.0;
 		m_vStickL.x = 0.0;
 		m_vStickL.y = 0.0;
 	}
-	else m_dTiltQuantStickL = lentmp;
+	else m_dStickL_len = lentmp;
 
 	// 右
 	lentmp = m_vStickR.len();
 	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
 	{
-		m_dTiltQuantStickR = 0.0;
+		m_dStickR_len = 0.0;
 		m_vStickR.x = 0.0;
 		m_vStickR.y = 0.0;
 	}
-	else m_dTiltQuantStickR = lentmp;
+	else m_dStickR_len = lentmp;
 
 };
 
@@ -528,3 +502,4 @@ void VirtualController::DBG_ShowXinputState()
 							"%2d:%d", i, m_XinputState.Buttons[ i ] ) ;
 	}
 };
+

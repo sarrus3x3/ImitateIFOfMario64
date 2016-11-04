@@ -427,7 +427,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		GameWorldIns.Render();
 
 		// ################## コントローラーを描画 #######################
-		VController.Render( Vector2D(25,25) );
+		//VController.Render( Vector2D(25,25) );
 
 		// ################## デバック情報を出力 #######################
 		//行数
@@ -450,13 +450,21 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Speed:%8f",PCEnti.Speed() ); 
 		colmun++;
 
+		// 現在のStateの描画
+		DrawFormatString( 0, width*colmun, 0xffffff, "StateName:%s", PCEnti.DBG_getCurrentStateName().c_str() ); 
+		colmun++;
+
+
+		// アナログスティック状態とEntityの向きを描画
+		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 50 ) );
+
 		/*
 		// Entityの移動レベルを表示
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Mode Level:%d",PCEnti.m_eMoveLevel ); 
 		colmun++;
 
 		// アナログスティックの傾き量
-		DrawFormatString( 0, width*colmun, 0xffffff, "Analog Stick Tilt:%f",PCEnti.m_pVirCntrl->m_dTiltQuantStickL ); 
+		DrawFormatString( 0, width*colmun, 0xffffff, "Analog Stick Tilt:%f",PCEnti.m_pVirCntrl->m_dStickL_len ); 
 		colmun++;
 
 		DrawFormatString( 0, width*colmun, 0xffffff, "pEntity->SpeedSq():%f",PCEnti.DBG_m_dDBG ); 
@@ -493,6 +501,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 			PCEnti.m_pAnimMgr->m_pLeftHairPhysics->DBG_m_dAverageTimeForUpdate ); 
 		colmun++;
 		*/
+
+		// ################## 退避させておいた物理情報の更新 #######################
+		PCEnti.DBG_UpdateSavePhys();
 
 	}
 

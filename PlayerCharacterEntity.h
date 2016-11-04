@@ -75,6 +75,8 @@ private:
 	double   m_dMass;           // Entityの質量
 	double   m_dBoundingRadius; // Entityのバウンディング半径
 
+	// ↑これ、カプセル化したい
+
 	// #### Collision関連 ####
 
 public:
@@ -178,6 +180,9 @@ public:
 	// スティックの傾きの方向からEntityの移動方向を計算する
 	Vector3D calcMovementDirFromStick();
 
+private:
+	// スクリーン上の座標（スクリーンローカル座標）をXZ平面に投影した座標を計算する（内部的に ConvScreenPosToWorldPos を使用）
+	inline Vector3D convScreenPosToXZPlane( Vector2D ScreenPos );
 
 	// #### 暫定 ####
 public:
@@ -188,5 +193,16 @@ public:
 
 	Vector3D DBG_m_vStickPos;              // （Entity平面上に投影した）スティックの傾きの位置
 	void DBG_renderMovementDirFromStick(); // デバッグ用 （Entity平面上に投影した）スティックの傾きの位置を描画
+
+	void DBG_renderStickTiltAndHeading( Vector2D RenderPos ); // アナログスティックの傾きとEntityの向きを描画
+
+	// 今のState名を取得
+	string DBG_getCurrentStateName();
+
+	// State->calcで更新される前の物理情報を退避
+	Vector3D DBG_m_vVelocitySave;
+	void DBG_UpdateSavePhys();  // 退避させておいた物理情報の更新
+	Vector3D DBG_m_vTurnDestination; // OneEightyDegreeTurn::m_vTurnDestination のコピー
+
 
 };
