@@ -1,3 +1,5 @@
+#include <vector>
+
 
 #include "Vector3D.h"
 #include "Vector2D.h"
@@ -121,10 +123,14 @@ public:
 		Breaking = 10,  // ダッシュからの切返し状態の"ブレーキ中"のモーション
 		Turning  = 11,  // ダッシュからの切返し状態の"切返し中"のモーション
 		BreakAndTurn  = 12, // モーション004全体
-		BreakingAfter = 13   // ダッシュからの切返しで、急ブレーキ後に切り返さず立ち状態に戻る時の、ブレーキからの起き上がりモーション
+		BreakingAfter = 13, // ダッシュからの切返しで、急ブレーキ後に切り返さず立ち状態に戻る時の、ブレーキからの起き上がりモーション
+		TurnFinalFly  = 14, // 切返し動作の最後の飛び出すモーション（暫定的に走りのモーションより切出し）
+		// ==== MMDモーションのインポートツール作成のブログ記事作成のためのデモ用 ===
+		DEMO_Turning = 15,     // 切り返し
+		DEMO_RunningRev = 16   // 走り（全ての親を操作して向きを反転）
 	};
 
-	static const int m_iAnimIDMax=14;
+	static const int m_iAnimIDMax=17;
 
 	// #### アニメーション固有情報管理クラス
 	// 全てのアニメーション固有情報が格納されたコンテナを管理するためのシングルトン
@@ -203,6 +209,9 @@ public:
 	Vector3D DBG_m_vVelocitySave;
 	void DBG_UpdateSavePhys();  // 退避させておいた物理情報の更新
 	Vector3D DBG_m_vTurnDestination; // OneEightyDegreeTurn::m_vTurnDestination のコピー
+
+	// 切返し動作（OneEightyDegreeTurn）について各サブ状態の継続時間を出力する
+	void DBG_exp_OneEightyDegreeTurn_SubStateDurations( int &c );  // なんて汚い名前なんだ...
 
 
 };

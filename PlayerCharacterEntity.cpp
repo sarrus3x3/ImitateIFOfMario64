@@ -315,6 +315,11 @@ string PlayerCharacterEntity::DBG_getCurrentStateName()
 	return m_pCurrentState->getStateName(); 
 };
 
+// 切返し動作（OneEightyDegreeTurn）について各サブ状態の継続時間を出力する
+void PlayerCharacterEntity::DBG_exp_OneEightyDegreeTurn_SubStateDurations( int &c )
+{
+	OneEightyDegreeTurn::Instance()->DBG_expSubStateDurations( c );
+};
 
 // ##### AnimUniqueInfoManager #####
 PlayerCharacterEntity::AnimUniqueInfoManager* PlayerCharacterEntity::AnimUniqueInfoManager::Instance()
@@ -366,6 +371,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.5 );
 	pAnimUnq->m_fAnimStartTime    = 20.0f;
 	pAnimUnq->m_fAnimInterval     = 12.0;
+	pAnimUnq->m_fExAnimStartTime  = 25.0f; // 飛んでいる（両足が地面から離れている）状態から開始。切返しのモーションからの接続で使用。
 
 	// --------- Jumping --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Jumping];
@@ -468,5 +474,35 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 6;
 	pAnimUnq->m_bRepeatAnimation  = false;
 	pAnimUnq->m_fUniquePlayPitch = (float)2.0;
+
+
+	// --------- TurnFly --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFinalFly];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "TurnFinalFly";
+	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.5 );
+	pAnimUnq->m_CurAttachedMotion   = 0;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 20.0f;
+	pAnimUnq->m_fAnimEndTime        = 25.0f; 
+
+	// =========================================================
+	// 2017/03/20
+	// MMDモーションのインポートツール作成のブログ記事作成のためのデモ用
+
+	// --------- DEMO_Turning --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_Turning];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "DEMO_Turning"; 
+	pAnimUnq->m_CurAttachedMotion = 5;
+	pAnimUnq->m_bRepeatAnimation  = false;
+
+	// --------- DEMO_RunningRev --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_RunningRev];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "DEMO_RunningRev"; 
+	pAnimUnq->m_CurAttachedMotion = 7;
+	pAnimUnq->m_bRepeatAnimation  = false;
 
 };

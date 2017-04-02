@@ -171,6 +171,17 @@ void AnimationManager::setAnim( PlayerCharacterEntity::AnimationID AnimID, doubl
 	setAnimMain( AnimID, AnimSwitchTime, StopPrvAnim, SyncToPrv );
 };
 
+void AnimationManager::setAnimExStartTime( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim )
+{
+	// setAnimを呼ぶ
+	setAnim( AnimID, AnimSwitchTime, StopPrvAnim );
+
+	// 開始時刻を AnimUniqueInfo.m_fExAnimStartTime に変更
+	m_pCurAnimPlayInfo->m_CurPlayTime = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fExAnimStartTime;
+
+};
+
+
 // ブレンド指定する場合は、引数に、ブレンド時間（デフォルト0）、現在のアニメーションの停止要否（デフォルト要）を設定
 // AnimSwitchTime 以降を指定しないとブレンドなしで切替する。
 void AnimationManager::setAnimMain( 

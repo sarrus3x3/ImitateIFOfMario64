@@ -458,6 +458,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// アナログスティック状態とEntityの向きを描画
 		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 50 ) );
 
+		// 現在のアニメーションの再生時間を出力
+		DrawFormatString( 0, width*colmun, 0xffffff, "Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
+		colmun++;
+
+		// サブ状態の継続時間を出力
+		PCEnti.DBG_exp_OneEightyDegreeTurn_SubStateDurations( colmun );
+
+
 		/*
 		// Entityの移動レベルを表示
 		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Mode Level:%d",PCEnti.m_eMoveLevel ); 
