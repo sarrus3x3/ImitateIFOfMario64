@@ -373,11 +373,10 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 	{
 		// ダッシュからの切返しの後であれば、走りのアニメーションを継続する。
 		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 5.0, false );
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running  );
+		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running  );
+		pEntity->m_pAnimMgr->setAnimExStartTime( PlayerCharacterEntity::Running, 0.5 );
 
-		// あー、切返しキャンセルした場合はブレンドしたい → 切返し動作のサブステートをEntityに持たせる必要がある
-		// → 面倒くさいからいや…。ブレンドしても大丈夫だろ
-
+		/*
 		// サブステートの評価を行う
 		if( (pEntity->m_pVirCntrl->m_dStickL_len > ThresholdSticktiltRunToWark) 
 			|| pEntity->SpeedSq() < ThresholdSpeedRunToWark )
@@ -394,6 +393,7 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 			// アニメーションを更新
 			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0, false );
 		}
+		*/
 
 	}
 	else
@@ -771,16 +771,19 @@ void SurfaceMove::Exit( PlayerCharacterEntity* pEntity )
 //const double OneEightyDegreeTurn::MaxVelocity      = 65.0;  // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
 //const double OneEightyDegreeTurn::ViscousRsisTurn   = 40.0;  // 粘性抵抗係数
 //const double OneEightyDegreeTurn::ViscousRsisBreak  = 25.0;  // 粘性抵抗係数
-const double OneEightyDegreeTurn::TurningDulation  = 0.3;
-const double OneEightyDegreeTurn::BrakingDulation  = 0.1;   // ブレーキ状態の継続時間
 
-//const double OneEightyDegreeTurn::SlowDownEnough   = 5.0;   // SurfaceMove→停止 の速度閾値と同じにしておく
+const double OneEightyDegreeTurn::BreakPreDulation = 0.1;  // ブレーキ初期（SUB_BREAK_PRE）の継続時間
+const double OneEightyDegreeTurn::TurnRotDulation  = 0.3;  // 切返し回転（SUB_TURN_ROT）の継続時間
+const double OneEightyDegreeTurn::TurnFlyDulation  = 0.1;  // 切返し発射（SUB_TURN_FLY）の継続時間
+
 const double OneEightyDegreeTurn::InnerProductForStartTurn = 0.0; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
 
 const double OneEightyDegreeTurn::TurningForceSize = 65.0 * 90.0 ;  // 切出し時の加速力大きさ
-const double OneEightyDegreeTurn::BrakingForceSize = 65.0 * 10.0 ;  // ブレーキ中の制動力の大きさ
+const double OneEightyDegreeTurn::BrakingForceSize = 65.0 * 10.0 * 3.5 ;  // ブレーキ中の制動力の大きさ
 // 問題は、この大きさをどのように決めるか？？
 // 粘性抵抗 * 最高速度 が加速力なのでこれに合わせる
+
+const double OneEightyDegreeTurn::SqSlowDownEnough = 5.0 * 5.0;  // ブレーキ状態(SUB_BREAK_STAND/SUB_BREAK_TURN)の終了条件で使用。
 
 
 OneEightyDegreeTurn* OneEightyDegreeTurn::Instance()
@@ -792,7 +795,7 @@ OneEightyDegreeTurn* OneEightyDegreeTurn::Instance()
 void OneEightyDegreeTurn::Enter( PlayerCharacterEntity* pEntity )
 {
 	// サブステートの初期化
-	m_eSubState = SUB_BREAKING;
+	m_eSubState = SUB_BREAK_PRE;
 
 	// 切返し動作を開始した時の速度方向を記録
 	m_vVelDirBeginning = pEntity->Velocity().normalize();
@@ -807,8 +810,11 @@ void OneEightyDegreeTurn::Enter( PlayerCharacterEntity* pEntity )
 	// BrakingDulation 時間内にアニメーション再生が完了するように再生ピッチを調整する
 	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
 	//float PlayPitch = (float)(AnimTotalTime/BrakingDulation) + 1.0;
-	float PlayPitch = (float)(AnimTotalTime/BrakingDulation) ; // +1.0を消してみる。なんで盛ってあるんだろう？
+	float PlayPitch = (float)(AnimTotalTime/BreakPreDulation) ; // +1.0を消してみる。なんで盛ってあるんだろう？
 	pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+	// DBG_m_SubStateDurations を初期化（全て0にセットする）
+	DBG_m_SubStateDurations.assign( 6, 0 );
 
 }
 
@@ -867,7 +873,9 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	}
 	
 	// #### ブレーキ中にキャンセル
-	if( m_eSubState == SUB_BREAKING )
+	if( m_eSubState == SUB_BREAK_PRE
+	 || m_eSubState == SUB_BREAK_TURN 
+     || m_eSubState == SUB_BREAK_STAND )
 	{ // ブレーキ状態
 
 		// スティックの傾き方向が（切返し開始時の）速度方向に倒されたら（戻されたら）、 
@@ -883,29 +891,76 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 	}
 
-	// #### ブレーキ・サブ状態から切返し・サブ状態への遷移判定
+	// #### サブ状態に関しての状態遷移処理
 
-	if( m_eSubState == SUB_BREAKING )
-	{ // ブレーキ状態
+	// 23:44 今日は、これくらいにするか。→ もう寝ましょう！
 
-		// ブレーキ状態の継続時間が、BrakingDulation を満了したら、切返し状態に遷移する。
-		if( pEntity->getStopWatchTime() > BrakingDulation )
+	if( m_eSubState == SUB_BREAK_PRE )
+	{ // ブレーキ初期
+		// 【終了条件】このサブ状態に遷移してから一定時間経過後
+		if( pEntity->getStopWatchTime() > BreakPreDulation )
 		{
-			// スティックの傾きが 0 だった場合は、その後に切返しをキャンセルして 停止の状態に遷移。
+			// 【遷移先Stateの判定】
+			// 終了時のスティックの傾きの状態で、次の遷移状態を決定する。
 			if( pEntity->m_pVirCntrl->m_dStickL_len==0 )
-			{ 
-				pEntity->ChangeState( Standing::Instance() );
-				return ;
+			{
+				// スティックの傾きが 0
+				// → 切返しなしブレーキ(SUB_BREAK_STAND)へ。
+				m_eSubState = SUB_BREAK_STAND;
 			}
-
-			// 切返し状態に遷移
-			m_eSubState = SUB_TURNING;
-
-			// タイマオン
-			pEntity->StopWatchOn();
+			else
+			{
+				// スティックの傾きが 0 でない
+				// → 切返しありブレーキ(SUB_BREAK_TURN) へ。
+				m_eSubState = SUB_BREAK_TURN;
+			}
 
 			// 切出し動作で"発射"する方として、切出し動作開始した時のスティックの向き（規格化）に設定
 			m_vTurnDestination = pEntity->calcMovementDirFromStick().normalize();
+
+			// 継続時間を時間記録
+			DBG_m_SubStateDurations[SUB_BREAK_PRE] = pEntity->getStopWatchTime();
+
+			// タイマ初期化
+			pEntity->StopWatchOn();
+
+		}
+
+	}
+	else if( m_eSubState == SUB_BREAK_STAND )
+	{ // 切返しなしブレーキ
+		// 【終了条件】速度が0になるまで。
+		if( pEntity->Velocity().sqlen() < SqSlowDownEnough )
+		{
+			// 切返し動作状態（OneEightyDegreeTurn）から抜けて基本動作状態（SurfaceMove）へ遷移
+			pEntity->ChangeState( Standing::Instance() );
+
+			// 継続時間を時間記録
+			DBG_m_SubStateDurations[SUB_BREAK_STAND] = pEntity->getStopWatchTime();
+
+			return ;
+		}
+	}
+	else if( m_eSubState == SUB_BREAK_TURN )
+	{ // 切返しありブレーキ
+		// 【終了条件】速度が0になるまで。
+
+		// 2016/11/27
+		// 単純に速度の絶対値で判定する方式では、ブレーキ力による加速により
+		// 速度が切返し方向に向いてしまうとサブ状態から抜けれなくなってしまう
+		// ことがあるため、ブレーキ方向との内積値が負値になるように条件を変更する。
+
+		//if( pEntity->Velocity().sqlen() < SqSlowDownEnough )
+		if( pEntity->Velocity() * m_vVelDirBeginning < 0 )
+		{
+			// 切返し回転（SUB_TURN_ROT）サブ状態へ遷移
+			m_eSubState = SUB_TURN_ROT;
+
+			// 継続時間を時間記録
+			DBG_m_SubStateDurations[SUB_BREAK_TURN] = pEntity->getStopWatchTime();
+
+			// タイマオン
+			pEntity->StopWatchOn();
 
 			// （ブレーキ後の）切返し開始時の速度を記憶
 			m_vVelEnterTurning = pEntity->Velocity();
@@ -916,29 +971,68 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			// TurningDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
 			float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
 			//float PlayPitch = (float)(AnimTotalTime/TurningDulation) + 1.0;
-			float PlayPitch = (float)(AnimTotalTime/TurningDulation) ;
+			float PlayPitch = (float)(AnimTotalTime/TurnRotDulation) ;
 			pEntity->m_pAnimMgr->setPitch(PlayPitch);
 
 			return ;
 
 		}
-
 	}
-
-	// #### 切返し・サブ状態がタイマ満了になったらSurfaceMove Stateに遷移
-	if( m_eSubState == SUB_TURNING )
-	{ // 切返し状態
-		if( pEntity->getStopWatchTime() > TurningDulation )
+	else if( m_eSubState == SUB_TURN_ROT )
+	{ // 切返し回転
+		// 【終了条件】このサブ状態に遷移してから一定時間経過後
+		if( pEntity->getStopWatchTime() > TurnRotDulation )
 		{
-			pEntity->ChangeState( SurfaceMove::Instance() );
+			// 切返し発射（SUB_TURN_FLY）サブ状態へ遷移
+			m_eSubState = SUB_TURN_FLY;
+
+			// 継続時間を時間記録
+			DBG_m_SubStateDurations[SUB_TURN_ROT] = pEntity->getStopWatchTime();
+
+			// タイマオン
+			pEntity->StopWatchOn();
+
+			// 切返ししながら飛び出すアニメーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnFinalFly );
+
+			// TurnFlyDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
+			float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
+			float PlayPitch = (float)(AnimTotalTime/TurnFlyDulation) ;
+			pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+		}
+	}
+	else if( m_eSubState == SUB_TURN_FLY )
+	{ // 切返し発射
+		// 【終了条件】このサブ状態に遷移してから一定時間経過後
+		if( pEntity->getStopWatchTime() > TurnFlyDulation )
+		{
+			// 切返しラスト（SUB_TURN_FIN）サブ状態へ遷移
+			m_eSubState = SUB_TURN_FIN;
+
+			// 継続時間を時間記録
+			DBG_m_SubStateDurations[SUB_TURN_FLY] = pEntity->getStopWatchTime();
+
+			// タイマオン
+			pEntity->StopWatchOn();
 
 			return;
 		}
 	}
+	else if( m_eSubState == SUB_TURN_FIN )
+	{ // 切返しラスト（速度方向の調整に使用）
+		// 【終了条件】速度を調整するためのみのサブ状態なので直ぐに次の状態に遷移する。
+		// 切返し動作状態（OneEightyDegreeTurn）から抜けて基本動作状態（SurfaceMove）へ遷移
+		pEntity->ChangeState( SurfaceMove::Instance() );
 
+		// 継続時間を時間記録
+		DBG_m_SubStateDurations[SUB_TURN_FIN] = pEntity->getStopWatchTime();
+
+		return;
+	}
 
 	// #### デバッグ用
-	if( m_eSubState == SUB_TURNING )
+	if( m_eSubState == SUB_TURN_ROT || m_eSubState == SUB_TURN_FLY )
 	{
 		pEntity->DBG_m_vTurnDestination = m_vTurnDestination;
 	}
@@ -955,11 +1049,15 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 	// ブレーキ力、切返し時の推進力は、
 	// Entityの終速度と、粘性抵抗係数（=終速度への到達時間）より計算する。
 
+	// 切返し完了時の最大速度を設定
+	static double EndSpeed = 0.5 * (SurfaceMove::MaxVelocity + sqrt(SurfaceMove::ThresholdSpeedRunToWark) );
+
 	PhyVar.init(); // 初期化
 
-	// サブ・ステートにより動作をわける
-	if( m_eSubState == SUB_BREAKING )
-	{ // ブレーキ状態
+	if( m_eSubState == SUB_BREAK_PRE
+	 || m_eSubState == SUB_BREAK_TURN 
+     || m_eSubState == SUB_BREAK_STAND )
+	{ // ブレーキ動作
 		// 速度が十分小さくなるまでブレーキをかける。
 
 		// ブレーキ力を計算
@@ -975,27 +1073,22 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		return;
 
 	}
-	else if( m_eSubState == SUB_TURNING )
-	{ // 切返し状態
+	else if( m_eSubState == SUB_TURN_ROT )
+	{ // 切返し回転動作
 		// 切り返しの方向に加速する。同時に向きを切返し方向へ回転。
 
 		// ##### Entityに働く力を計算
 
-		// スティックの傾きの方向からEntityの移動方向を計算する
-		//Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
-		
-		// * スティックの傾き（=Input）から、終速度を計算
-		// この時にスティックの傾きの大きさを反映させるようにする
 
-		static double EndSpeed = 0.5 * (SurfaceMove::MaxVelocity + sqrt(SurfaceMove::ThresholdSpeedRunToWark) );
-
-		Vector3D TerminalVel =
+		// 切返し完了時の目標速度
+		Vector3D vTargetVelTurnEnd =
 			EndSpeed
 			* pEntity->m_pVirCntrl->m_dStickL_len
 			* m_vTurnDestination;
 
 		// 切返しを時間内に終速度まで加速するようにする
-		PhyVar.VelVar = (TerminalVel-m_vVelEnterTurning) / TurningDulation ;
+		double TurnRemainingTime = TurnRotDulation+TurnFlyDulation;
+		PhyVar.VelVar = (vTargetVelTurnEnd-m_vVelEnterTurning) / TurnRemainingTime ;
 		PhyVar.UseVelVar  = true;
 
 		// ##### Entity向きの回転量を計算
@@ -1013,7 +1106,7 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		}
 
 		// 現在の回転位置と、回転完了までの残り時間より、今回のタイムステップにおける回転量を計算
-		double RemainingTime = TurningDulation - pEntity->getStopWatchTime();
+		double RemainingTime = TurnRotDulation - pEntity->getStopWatchTime();
 		double RotQuant;
 		if( RemainingTime > pEntity->TimeElaps() )
 		{
@@ -1039,6 +1132,58 @@ void OneEightyDegreeTurn::Calculate( PlayerCharacterEntity* pEntity, PhysicalQua
 		return;
 
 	}
+	else if( m_eSubState == SUB_TURN_FLY )
+	{ // 切返し発射動作
+		// キャラクタ向きの回転はしない。それ以外の動作は切返し回転(SUB_TURN_ROT)と同じ。
+
+		// ##### Entityに働く力を計算
+
+		// 切返し完了時の目標速度
+		Vector3D vTargetVelTurnEnd =
+			EndSpeed
+			* pEntity->m_pVirCntrl->m_dStickL_len
+			* m_vTurnDestination;
+
+		// 切返しを時間内に終速度まで加速するようにする
+		double TurnRemainingTime = TurnRotDulation+TurnFlyDulation;
+		PhyVar.VelVar = (vTargetVelTurnEnd-m_vVelEnterTurning) / TurnRemainingTime ;
+		PhyVar.UseVelVar  = true;
+
+		// ##### Entity向きの回転量を計算
+
+		// Entityの向きを切返し方向に向ける。
+		// （ノーメンテだと、まだ速度が切返し方向へ向いていない場合があり、Entityが変な動きをするので）
+
+		// 新しいHeadingベクトルを設定し完了
+		PhyVar.Heading = m_vTurnDestination;
+		PhyVar.UseHeading = true;
+		
+
+	}
+	else if( m_eSubState == SUB_TURN_FIN )
+	{ // 切返しラスト（速度方向の調整に使用）
+
+		// 切り返し動作の完了時に
+		// 直接速度方向を切り返し方向に向けるように補正する
+
+		// ##### Entityに働く力を計算
+
+		// 目標速度として、切り返し方向に補正する
+		Vector3D vTargetVelTurnEnd = (pEntity->Velocity()*m_vTurnDestination)*m_vTurnDestination;
+
+		// この処理ステップで目標速度に更新されるように加速度を調整する
+		double TurnRemainingTime = pEntity->TimeElaps();
+		PhyVar.VelVar = (vTargetVelTurnEnd-pEntity->Velocity()) / TurnRemainingTime ;
+		PhyVar.UseVelVar  = true;
+
+		// ##### Entity向きの回転量を計算
+
+		// 新しいHeadingベクトルを設定し完了
+		PhyVar.Heading = m_vTurnDestination;
+		PhyVar.UseHeading = true;
+
+
+	}
 	else{ assert(false); }
 
 	
@@ -1061,17 +1206,28 @@ void OneEightyDegreeTurn::Render(PlayerCharacterEntity* pEntity )
 	string SubStateString;
 	switch( m_eSubState )
 	{
-	case OneEightyDegreeTurn::SUB_BREAKING:
-		SubStateString = "SUB_BREAKING";
+	case OneEightyDegreeTurn::SUB_BREAK_PRE:    // ブレーキ初期
+		SubStateString = "SUB_BREAK_PRE";
 		break;
-	case OneEightyDegreeTurn::SUB_TURNING:
-		SubStateString = "SUB_TURNING";
+	case OneEightyDegreeTurn::SUB_BREAK_STAND:  // 切返しなしブレーキ
+		SubStateString = "SUB_BREAK_STAND";
+		break;
+	case OneEightyDegreeTurn::SUB_BREAK_TURN:   // 切返しありブレーキ
+		SubStateString = "SUB_BREAK_TURN";
+		break;
+	case OneEightyDegreeTurn::SUB_TURN_ROT:     // 切返し回転
+		SubStateString = "SUB_TURN_ROT";
+		break;
+	case OneEightyDegreeTurn::SUB_TURN_FLY:     // 切返し発射
+		SubStateString = "SUB_TURN_FLY";
+		break;
+	case OneEightyDegreeTurn::SUB_TURN_FIN:   // 切返しラスト（速度方向の調整に使用）
+		SubStateString = "SUB_TURN_FIN";
 		break;
 	}
 
 	DrawFormatString( 0, width*colmun, 0xffffff, "SubState:%s", SubStateString.c_str() ); 
 	colmun++;
-
 	
 	DrawFormatString( 0, width*colmun, 0xffffff, "Angle:%f", DBG_m_dAngle ); 
 	colmun++;
@@ -1087,4 +1243,23 @@ void OneEightyDegreeTurn::Exit( PlayerCharacterEntity* pEntity )
 	// 遠心力による姿勢の傾きの解除
 	pEntity->m_pAnimMgr->setBankAngle( 0.0 );
 }
+
+// 各サブ状態の継続時間を出力する
+void OneEightyDegreeTurn::DBG_expSubStateDurations( int &c )
+{
+	int width = 15;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_BREAK_PRE  :%f", DBG_m_SubStateDurations[SUB_BREAK_PRE] ); 
+	c++;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_BREAK_STAND:%f", DBG_m_SubStateDurations[SUB_BREAK_STAND] ); 
+	c++;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_BREAK_TURN :%f", DBG_m_SubStateDurations[SUB_BREAK_TURN] ); 
+	c++;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_TURN_ROT   :%f", DBG_m_SubStateDurations[SUB_TURN_ROT] ); 
+	c++;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_TURN_FLY   :%f", DBG_m_SubStateDurations[SUB_TURN_FLY] ); 
+	c++;
+	DrawFormatString( 0, width*c, 0xffffff, "SUB_TURN_FIN   :%f", DBG_m_SubStateDurations[SUB_TURN_FIN] ); 
+	c++;
+
+};
 

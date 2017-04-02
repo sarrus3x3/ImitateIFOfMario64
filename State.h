@@ -184,26 +184,27 @@ public:
 class OneEightyDegreeTurn : public State
 {
 private:
-	OneEightyDegreeTurn(){}
+	OneEightyDegreeTurn() : DBG_m_SubStateDurations( vector<float>(6,0) )
+	{}
 
 	// コピーコンストラクタ、代入演算子を private に
 	OneEightyDegreeTurn(const OneEightyDegreeTurn&);
 	OneEightyDegreeTurn& operator=(const OneEightyDegreeTurn&);
 
 	// ##### 定数
-	//static const double SlowDownEnough;    // この速度以下になったらブレーキ状態→切返し状態に移行する
-	static const double TurningDulation;   // 切返し状態の継続時間
-	static const double BrakingDulation;   // ブレーキ状態の継続時間
+	
+	// サブ状態の継続時間
+	static const double BreakPreDulation;  // ブレーキ初期（SUB_BREAK_PRE）の継続時間
+	static const double TurnRotDulation;   // 切返し回転（SUB_TURN_ROT）の継続時間
+	static const double TurnFlyDulation;   // 切返し発射（SUB_TURN_FLY）の継続時間
+
+	// 動作の物理モデルパラメータ
+	static const double SqSlowDownEnough;  // ブレーキ状態(SUB_BREAK_STAND/SUB_BREAK_TURN)の終了条件で使用。
 
 	static const double TurningForceSize;  // 切出し時の加速力大きさ
 	static const double BrakingForceSize;  // ブレーキ中の制動力の大きさ
 
-	//static const double MaxVelocity;       // キャラクターの最大速度（スティックをmaxまで倒した時の最大速度）
-	//static const double ViscousRsisTurn;   // （切返し時の）粘性抵抗係数
-	//static const double ViscousRsisBreak;  // （ブレーキ時の）粘性抵抗係数
-
 	static const double InnerProductForStartTurn; // 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
-
 
 	// メンバ
 	Vector3D m_vVelDirBeginning; // OneEightyDegreeTurnにEnterした時の速度方向
@@ -215,15 +216,23 @@ private:
 	// サブ状態
 	enum SubStateID
 	{
-		SUB_BREAKING = 0,
-		SUB_TURNING  = 1
+		//SUB_BREAKING = 0,
+		//SUB_TURNING  = 1,
+		SUB_BREAK_PRE   = 0, // ブレーキ初期
+		SUB_BREAK_STAND = 1, // 切返しなしブレーキ
+		SUB_BREAK_TURN  = 2, // 切返しありブレーキ
+		SUB_TURN_ROT    = 3, // 切返し回転
+		SUB_TURN_FLY    = 4, // 切返し発射
+		SUB_TURN_FIN    = 5  // 切返しラスト（速度方向の調整に使用）
 	};
 	SubStateID m_eSubState;
 
-	// ##### デバッグ用
 
 	double DBG_m_dAngle;
 	double DBG_m_dRemainingTime;
+
+	// サブ状態の継続時間の測定
+	vector<float> DBG_m_SubStateDurations;   // サブ状態の継続時間を記録する配列
 
 public:
 
@@ -236,6 +245,9 @@ public:
 	virtual void Render(PlayerCharacterEntity*);
 	virtual void Exit(PlayerCharacterEntity* );
 	virtual string getStateName(){ return "OneEightyDegreeTurn"; };
+
+	// ##### デバッグ用
+	void DBG_expSubStateDurations( int &c ); // 各サブ状態の継続時間を出力する
 
 };
 
