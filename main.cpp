@@ -27,10 +27,11 @@
 // ########### 制御用 defin ###########
 
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
+#define GROUND_MESH_ON  // 地面の方眼模様あり
+//#define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
+//#define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
+//#define ITEM_GETTING // アイテム収集演出
 
-//#define GROUND_MESH_ON  // 地面の方眼模様あり
-
-#define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
 
 // ####################################
 
@@ -208,8 +209,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	//SetLightDifColor( GetColorF( 1.0, 1.0, 1.0, 1.0 ) );
 	SetLightDirection( VGet( 1.0, -0.5, 0 ) ); // 木星（系）の見え方と、光の当たり方（=太陽の方向）がメチャクチャだけど、まぁ、いいか。
 
+#ifdef FLOATING_DUNGEON
 	// 浮遊ダンジョン
 	FloatingDungeon Dungeon( 20.0, 200.0, "mapdef.bmp" );
+#endif
 
 	// ################## 変数の定義・初期化 #######################
 
@@ -242,11 +245,16 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// FPS測定
 	MeasureFPS InsMeasureFPS;
 
+#ifdef ITEM_GETTING
 	// みせかけアイテム回収機能実験
 	SampleGameWorld::Initialize();
 	SampleGameWorld GameWorldIns;
 
 	GameWorldIns.SetItemsToWorld( 20.0, 5.0, "ItemPlaceDef.bmp" );
+#endif
+
+	// キャラクタローカル座標モデル描画テスト
+	CoordinateAxisModel CharCordiModelTest( 0.5, 20, 20, 20 );
 
 	// ライト関係パラメータ
 	Vector3D LightPos;
@@ -336,8 +344,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// ################## EntityのUpdate #######################
 		PCEnti.Update( timeelaps );
 
+#ifdef ITEM_GETTING
 		// ######### みせかけだけアイテム回収機能の実験 #########
 		GameWorldIns.Update( timeelaps , PCEnti.Pos() );
+#endif
 
 		// ################## ライト（照明）の設定 #######################
 #ifdef LIGHT_ON
@@ -418,13 +428,32 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		ObjGroundGrid.Render(); // 素晴らしい..
 #endif
 
+#ifdef FLOATING_DUNGEON
+		// 浮遊ダンジョンジオラマの描画
 		Dungeon.Render();
+#endif
 
 		// ################## Entityの描画 #######################
 		PCEnti.Render();
 
+#ifdef ITEM_GETTING
 		// ######### みせかけだけアイテム回収機能の実験 #########
 		GameWorldIns.Render();
+#endif
+		// キャラクタローカル座標モデル描画テスト
+
+		// キャラクタローカル座標に合わせて描画するようにする
+		MATRIX Mtns = MGetAxis1(	// キャラクタの姿勢から [ Head, Upper, Side ]
+			PCEnti.Heading().toVECTOR(),
+			PCEnti.Uppder().toVECTOR(),
+			PCEnti.Side().toVECTOR(),
+			PCEnti.Pos().toVECTOR()
+			); 
+
+		// ★はい！なんかおかしいね！→もう寝なさい！
+
+		CharCordiModelTest.setMatrix(Mtns);
+		CharCordiModelTest.Render();
 
 		// ################## コントローラーを描画 #######################
 		//VController.Render( Vector2D(25,25) );
@@ -456,14 +485,28 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 
 		// アナログスティック状態とEntityの向きを描画
-		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 50 ) );
+		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 100 ) );
+
+		/*
 
 		// 現在のアニメーションの再生時間を出力
 		DrawFormatString( 0, width*colmun, 0xffffff, "Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
 		colmun++;
 
+		DrawFormatString( 0, width*colmun, 0xffffff, "Head :%4f, %4f, %4f",PCEnti.Heading().x, PCEnti.Heading().y, PCEnti.Heading().z ); 
+		colmun++;
+
+		DrawFormatString( 0, width*colmun, 0xffffff, "Side :%4f, %4f, %4f",PCEnti.Side().x, PCEnti.Side().y, PCEnti.Side().z ); 
+		colmun++;
+
+		DrawFormatString( 0, width*colmun, 0xffffff, "Upper:%4f, %4f, %4f",PCEnti.Uppder().x, PCEnti.Uppder().y, PCEnti.Uppder().z ); 
+		colmun++;
+
+
 		// サブ状態の継続時間を出力
-		PCEnti.DBG_exp_OneEightyDegreeTurn_SubStateDurations( colmun );
+		//PCEnti.DBG_exp_OneEightyDegreeTurn_SubStateDurations( colmun );
+
+		*/
 
 
 		/*

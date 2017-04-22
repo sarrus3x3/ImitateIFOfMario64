@@ -148,6 +148,11 @@ public:
 	// ##### メンバ変数
 private:
 	double m_dCentripetalForce; // 向心力の大きさ （遠心力によるバンク演出のために使用）
+	
+	// 以下はデバック用に保持
+	//Vector3D DBG_m_vDriveForceForVel;      // 速度方向の推進力 ※ルンゲクッタ法を使用しているため正確ではない
+	bool DBG_m_bCentripetalForceIsBounded; // 向心力が上限に達したかのflg ※ルンゲクッタ法を使用しているため正確ではない
+	bool DBG_m_bTurnWithouReduceSpeed;     // 速度を落とさず旋回かのflg
 
 public:
 
@@ -161,10 +166,9 @@ public:
 	virtual void Exit(PlayerCharacterEntity* );
 	virtual string getStateName(){ return "SurfaceMove"; };
 
-
-
 	// 補助
-	static Vector3D calculateForce( 
+	//static Vector3D calculateForce( 
+	Vector3D calculateForce( 
 		Vector3D vVel, 
 		Vector3D vUpper,
 		Vector3D vArrangeSteeringForce,

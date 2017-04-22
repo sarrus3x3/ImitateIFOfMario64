@@ -324,28 +324,33 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	// #### 位置補正をセンターフレームの座標変換行列に反映
 
 	// 位置補正用の座標変換行列を生成
-	MATRIX TransMac = MGetIdent();
-	TransMac.m[3][0] = (float)CorrectionVec.x;
-	TransMac.m[3][1] = (float)CorrectionVec.y;
-	TransMac.m[3][2] = (float)CorrectionVec.z;
+	MATRIX TransMac = MGetTranslate(CorrectionVec.toVECTOR());
 
-
-	// 姿勢傾きの設定
+	// 姿勢傾き（バルク角）の設定
 	TransMac = MMult( TransMac, MGetRotZ( (float)m_dBankAngle ) ); // ※ モデルはデフォルトではz軸負方向を向いている
 
+	// モデルはデフォルトでz軸方向に向いているため、x軸方向に向くように回転
+	TransMac = MMult( TransMac, MGetRotY( DX_PI * -0.5 ) );
+
 	// Entityの向き設定用の座標変換行列を生成
-	// ↓本当は、head、side、uppperの基底から向き設定行列を計算したい。
-	//   基底の順序や、デフォルトのEntityの向きを考慮しないといけないので、とりあえず保留
-	Vector2D head2D = Head.toVector2D();               // headingを2D変換
-	double headangle = atan2( head2D.x, head2D.y );    // headingの回転角を取得
-	TransMac = MMult( TransMac, MGetRotY( headangle+DX_PI ) );
+	
+	// 暫定処理。本来は引数にキャラクタのローカル座標情報を渡さなければならない。
+	Vector3D Upper( 0, 1, 0 );
+	Vector3D Orign( 0, 0, 0 );
+	Vector3D Side = Head % Upper;
+
+	// 行列 [ Head, Upper, Side ]
+	MATRIX MLoc = MGetAxis1(
+		Head.toVECTOR(),
+		Upper.toVECTOR(),
+		Side.toVECTOR(),
+		Orign.toVECTOR()
+		);
+	
+	TransMac = MMult( TransMac, MLoc );
 
 	// Entityの位置設定用の座標変換行列を生成
-	MATRIX SiftM = MGetIdent();
-	SiftM.m[3][0] = (float)Pos.x;
-	SiftM.m[3][1] = (float)Pos.y;
-	SiftM.m[3][2] = (float)Pos.z;
-	TransMac = MMult( TransMac, SiftM );
+	TransMac = MMult( TransMac, MGetTranslate(Pos.toVECTOR()) );
 
 	// 座標変換行列をモデルに適用
 	MV1SetMatrix( m_iModelHandle, TransMac );

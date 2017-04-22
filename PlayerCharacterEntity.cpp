@@ -123,7 +123,8 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 	}
 
 	// m_vHeading より、m_vSide を更新
-	m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
+	//m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
+	m_vSide = m_vHeading % m_vUpper ;
 
 };
 
@@ -209,7 +210,7 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 	Vector3D vScreenUprPrj = convScreenPosToXZPlane( vPosUpper2D );
 
 	Vector3D vBaseZ = (vScreenUprPrj - vScreenCntPrj).normalize();
-	Vector3D vBaseX = vBaseY * vBaseZ ;
+	Vector3D vBaseX = vBaseY % vBaseZ ;
 
 	// ## スティックの上方向のキャラクタ平面上のベクトルと、
 	// ## キャラクタ平面に対する上方向ベクトルから座標変換行列（剛体変換）を計算
@@ -281,25 +282,70 @@ void PlayerCharacterEntity::DBG_renderMovementDirFromStick()
 void PlayerCharacterEntity::DBG_renderStickTiltAndHeading( Vector2D RenderPos )
 {
 	static double RenderRadius = 25.0;
-	static int    Cyan   = GetColor( 0, 255, 255 );
-	static int    Yellow = GetColor( 255, 255, 0 );
 	static VirtualController::RenderStickTrajectory StickTrj(Vector2D(0.0,0.0), RenderRadius );
 
-	// 切返しの方向を描画
+	// 力ベクトルをそのまま描画するとスケールが大きすぎるの調整パラメータ
+	static double ForceScale = 0.04;
+
 	if( m_pCurrentState == OneEightyDegreeTurn::Instance() )
-	{
+	{ // 切返し動作の場合
+
+		// 切返しの方向を描画
 		Vector2D TurnDir = RenderRadius * DBG_m_vTurnDestination.normalize().toVector2D().reversY();
-		DrawLine2D( RenderPos.toPoint(), (RenderPos+TurnDir).toPoint(), Yellow, 3 );
+		DrawLine2D( RenderPos.toPoint(), (RenderPos+TurnDir).toPoint(), ColorPalette::Yellow, 3 );
+
+		// Entityの向きを描画
+		Vector2D VelDir = RenderRadius * DBG_m_vVelocitySave.normalize().toVector2D().reversY();
+		DrawLine2D( RenderPos.toPoint(), (RenderPos+VelDir).toPoint(), ColorPalette::Cyan );
+	}
+	else if(  m_pCurrentState == SurfaceMove::Instance() )
+	{ // 基本移動動作の場合
+	
+		// 移動操作における物理パラメータをデバッグ表示
+		Vector2D vTmp;
+
+		if( DBG_m_bTurnWithouReduceSpeed )
+		{ // ① 速度を落とさずに旋回
+		
+			// オリジナルの働く力ベクトルを緑・細線で描画
+			vTmp = ForceScale * DBG_m_vSteeringForce.toVector2D().reversY();
+			DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Green, FALSE );
+
+			// 向心力を緑・太線で描画。上限値であれば赤色にする。
+			vTmp = ForceScale * DBG_m_vCentripetalForce.toVector2D().reversY();
+			if(DBG_m_bCentripetalForceIsBounded)
+			{
+				DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Red, TRUE, 3 );
+			}
+			else
+			{
+				DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Green, TRUE, 3 );
+			}
+
+			// 速度方向への推進力を緑・太線で描画
+			vTmp = ForceScale * DBG_m_vDriveForceForVel.toVector2D().reversY();
+			DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Green, TRUE, 3 );
+
+		}
+		else
+		{ // ② スティック傾き＝力が加わる方向
+		
+			// オリジナルの働く力ベクトルを緑・太線で描画
+			vTmp = ForceScale * DBG_m_vSteeringForce.toVector2D().reversY();
+			DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Green, TRUE, 3 );
+		}
+
+		// Entityの速度ベクトルを青・細線で表示
+		vTmp = DBG_m_vVelocitySave.toVector2D().reversY();
+		DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Blue, FALSE );
 	}
 
 	// アナログスティックの状態を描画
 	Vector3D StickPos = calcMovementDirFromStick();
 	StickTrj.Render( StickPos.toVector2D(), RenderPos );
 
-	// Entityの向きを描画
-	Vector2D VelDir = RenderRadius * DBG_m_vVelocitySave.normalize().toVector2D().reversY();
-	DrawLine2D( RenderPos.toPoint(), (RenderPos+VelDir).toPoint(), Cyan );
-	
+	// 次は新PCに移行しようか。
+	// GitHubに変更を上げる
 
 };
 
@@ -437,6 +483,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimEndTime        = 33.35f;  // 重心が一番低いタイミング＋少し長めに取ってみる
 
 	// --------- Breaking --------- 
+	/*
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Breaking];
 	pAnimUnq->init();
 	pAnimUnq->m_sAnimName = "Breaking"; 
@@ -447,8 +494,20 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	//pAnimUnq->m_fAnimEndTime        = 10.0f; 
 	pAnimUnq->m_fAnimEndTime        = 20.0f; 
 	//pAnimUnq->m_fUniquePlayPitch = (float)1.8;
+	*/
+
+	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Breaking];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Breaking"; 
+	pAnimUnq->m_CurAttachedMotion   = 8;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 0.0f; 
+	pAnimUnq->m_fAnimEndTime        = 12.0f; 
 
 	// --------- Turning --------- 
+	/*
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
 	pAnimUnq->init();
 	pAnimUnq->m_sAnimName = "Turning"; 
@@ -460,6 +519,17 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimEndTime        = 41.0f; 
 	//pAnimUnq->m_fAnimEndTime        = 38.0f; 
 	//pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
+	*/
+
+	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Turning"; 
+	pAnimUnq->m_CurAttachedMotion   = 8;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 12.0f; 
+	pAnimUnq->m_fAnimEndTime        = 19.0f; 
 
 	// --------- BreakAndTurn --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAndTurn];
@@ -476,7 +546,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fUniquePlayPitch = (float)2.0;
 
 
-	// --------- TurnFly --------- 
+	// --------- TurnFinalFly --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFinalFly];
 	pAnimUnq->init();
 	pAnimUnq->m_sAnimName = "TurnFinalFly";
@@ -504,5 +574,17 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_sAnimName = "DEMO_RunningRev"; 
 	pAnimUnq->m_CurAttachedMotion = 7;
 	pAnimUnq->m_bRepeatAnimation  = false;
+
+	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
+	// --------- DEMO_TurnFinalFly --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_TurnFinalFly];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "DEMO_TurnFinalFly"; 
+	pAnimUnq->m_CurAttachedMotion   = 8;
+	pAnimUnq->m_bRepeatAnimation    = false;
+	pAnimUnq->m_bCutPartAnimation   = true;
+	pAnimUnq->m_fAnimStartTime      = 19.0f; 
+	pAnimUnq->m_fAnimEndTime        = 28.0f; 
+
 
 };

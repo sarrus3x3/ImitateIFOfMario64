@@ -74,43 +74,8 @@ public:
 };
 
 // ############### 六角形クリスタル アイテム用 ###############
-class HexagonCrystal
-{
-private:
-	VERTEX3D* m_pVertex; // ポリゴン集合を保持
-	int m_PolygonNum;    // ポリゴン数
-
-	Vector3D* m_pRawVertexPos; // オリジナルの頂点位置情報を保持する
-	Vector3D* m_pRawVertexNrm; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に、法線
-	
-	Vector3D  m_vCntPos;      // 図形の中心位置 
-	double    m_dHight;       // 高さ 
-	double    m_dWidth;       // 幅 
-	double    m_dDepth;       // 奥行き 
-	double    m_dRaito;       // 中面に対する前面／後面の大きさの比率
-
-public:
-	// コンストラクタ
-	HexagonCrystal( 
-		Vector3D  CenterPos,        // 図形の中心位置
-		double    Hight,            // 高さ
-		double    Width,            // 幅
-		double    Depth,            // 奥行き
-		double    Raito,            // 中面に対する前面／後面の大きさの比率
-		COLOR_U8  DifColor, // 頂点ディフューズカラー
-		COLOR_U8  SpcColor  // 球の頂点スペキュラカラー
-		);
-
-	// 描画
-	void Render();
-
-	// m_pVertex を m_pRawVertexPos で初期化
-	void resetVertex();
-
-	// 与えられた行列 Mat で m_pVertex を変換
-	void MatTransVertex( const MATRIX &Mat );
-
-};
+// class HexagonCrystal
+// 実体が存在しないため削除
 
 
 // ############### テキスチャを貼り付けられる球 ###############
@@ -417,3 +382,142 @@ public:
 
 };
 
+// ###############################################
+// 基本図形クラス
+// * 円柱、円錐、立方体などの簡単な図形。
+//   フレームワークを定義した基底クラス。
+//   これを継承して各図形クラスを定義するようにする。
+// ###############################################
+class BasicFig_Base
+{
+protected:
+	//==========メンバ
+	int m_iPolygonNum;     // ポリゴン数
+	int m_iVectexNum;      // 頂点数
+
+	VERTEX3D* m_pVertex;   // ポリゴン集合を保持
+	Vector3D* m_pOrgVertx; // オリジナルの頂点位置情報を保持する
+	Vector3D* m_pOrgNorms; // オリジナルの頂点法線ベクトル情報を保持する ※ オブジェクトの回転時に法線方向の追従が必要になるため。
+
+	MATRIX m_MTransMat;    // 座標変換行列（メソッド setMatrix で設定する）
+
+
+public:
+	//==========メソッド
+
+	// コンストラクタ
+	// - 図形の特性に合わせて、様々な初期化方法になる。
+	//--------------------------
+	// * 基底クラスのコンストラクタのパラメータ
+	//   - 色
+	//   - 頂点数 or ポリゴン数
+	// * 基底クラスのコンストラクタ内で行うこと。
+	//   - ポインタのメモリ確保。。
+	//   - m_pVertex へ色（＋α）の設定。
+	//   - 具体的な形状の設定は、基底クラスを継承した図形クラスのコンストラクタ内で行うこと。
+	BasicFig_Base( 
+		int       PolygonNum,       // ポリゴン（三角形）数
+		COLOR_U8  DifColor,         // 頂点ディフューズカラー
+		COLOR_U8  SpcColor          // 球の頂点スペキュラカラー
+		);
+
+	// 基本変形の実施
+	// - オリジナルのvertexに適用される（=図形のデフォルトの姿勢）
+	//--------------------------
+	// * m_pOrgVertx/m_pOrgNormsに対して変形を実施
+	// * m_pVertex を更新（setMatrix を実行）。
+	void setDefault( const MATRIX &Mat ) ;
+
+	// 座標変換行列の設定
+	// - 描画時に適用される変形
+	// - 別の変換を適用すると前の変換はリセットされる。
+	//--------------------------
+	// * m_pOrgVertx/m_pOrgNorms → m_pVertex へ代入。
+	// * m_pVertex に TransMat の座標変換を実施
+	void setMatrix( const MATRIX &Mat ) ;
+
+	// 描画
+	//--------------------------
+	// * 描画
+	void Render() ;
+
+
+};
+
+// 円柱図形クラス（基底基本図形クラスを継承）
+class BasicFig_Column : public BasicFig_Base
+{
+	// 個別に持つメンバはない？
+
+public:
+	//==========メソッド
+
+	// コンストラクタ
+	// - 図形の具体的な形状の設定を行う
+	BasicFig_Column( 
+		Vector3D  CenterPos,       // 底面の円形の中心位置
+		double    Radius,          // 半径
+		double    Hight,           // 円柱の高さ
+		int       DivNum,          // 分割数（＝底面の円形の分割数）
+		COLOR_U8  DifColor,        // 頂点ディフューズカラー
+		COLOR_U8  SpcColor         // 球の頂点スペキュラカラー
+		);
+
+};
+
+// 円錐図形クラス（基底基本図形クラスを継承）
+class BasicFig_Cone : public BasicFig_Base
+{
+	// 個別に持つメンバはない？
+
+public:
+	//==========メソッド
+
+	// コンストラクタ
+	// - 図形の具体的な形状の設定を行う
+	BasicFig_Cone( 
+		Vector3D  CenterPos,       // 底面の円形の中心位置
+		double    Radius,          // 半径
+		double    Hight,           // 円錐の高さ
+		int       DivNum,          // 分割数（＝底面の円形の分割数）
+		COLOR_U8  DifColor,        // 頂点ディフューズカラー
+		COLOR_U8  SpcColor         // 球の頂点スペキュラカラー
+		);
+
+};
+
+// リッチな座標軸モデル
+class CoordinateAxisModel
+{
+private:
+	// メンバ
+
+	// 構成要素となる基本図形
+	// * インスタンス化をコンストラクタ内で実行するため、ポインタで持つようにしている。
+	BasicFig_Cone   *m_pAxisX_Tip; // Ｘ軸の先端（矢印）部分
+	BasicFig_Column *m_pAxisX_Bar; // Ｘ軸の棒部分
+	BasicFig_Cone   *m_pAxisY_Tip; // Ｙ軸の先端（矢印）部分
+	BasicFig_Column *m_pAxisY_Bar; // Ｙ軸の棒部分
+	BasicFig_Cone   *m_pAxisZ_Tip; // Ｚ軸の先端（矢印）部分
+	BasicFig_Column *m_pAxisZ_Bar; // Ｚ軸の棒部分
+
+public:
+
+	// コンストラクタ
+	//--------------------------
+	CoordinateAxisModel(
+		double thickness,		// 座標軸の太さ（＝矢印大きさ）
+		double axis_x_length,	// Ｘ軸の長さ
+		double axis_y_length,	// Ｙ軸の長さ
+		double axis_z_length	// Ｚ軸の長さ
+		);
+
+	// 座標変換行列の設定
+	//--------------------------
+	void setMatrix( const MATRIX &Mat ) ;
+
+	// 描画
+	//--------------------------
+	void Render() ;
+
+};

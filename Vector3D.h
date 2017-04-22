@@ -214,12 +214,12 @@ inline Vector3D operator/( const Vector3D &vec , const double scr )
 };
 
 // ２つのベクトルの外積を計算する = vec1 × vec2
-inline Vector3D operator*( const Vector3D &vec1, const Vector3D &vec2 )
+inline Vector3D operator%( const Vector3D &vec1, const Vector3D &vec2 )
 {
 	Vector3D tmp;
 	tmp.x = vec1.y*vec2.z - vec1.z*vec2.y;
 	tmp.y = vec1.z*vec2.x - vec1.x*vec2.z;
-	tmp.z = vec1.z*vec2.y - vec1.y*vec2.x;
+	tmp.z = vec1.x*vec2.y - vec1.y*vec2.x;
 	return tmp;
 };
 

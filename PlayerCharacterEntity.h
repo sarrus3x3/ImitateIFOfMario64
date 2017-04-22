@@ -126,11 +126,13 @@ public:
 		BreakingAfter = 13, // ダッシュからの切返しで、急ブレーキ後に切り返さず立ち状態に戻る時の、ブレーキからの起き上がりモーション
 		TurnFinalFly  = 14, // 切返し動作の最後の飛び出すモーション（暫定的に走りのモーションより切出し）
 		// ==== MMDモーションのインポートツール作成のブログ記事作成のためのデモ用 ===
-		DEMO_Turning = 15,     // 切り返し
-		DEMO_RunningRev = 16   // 走り（全ての親を操作して向きを反転）
+		DEMO_Turning = 15,      // 切り返し
+		DEMO_RunningRev = 16,   // 走り（全ての親を操作して向きを反転）
+		DEMO_TurnFinalFly = 17  // 切返し動作の最後の飛び出すモーション（暫定的に走りのモーションより切出し）
+
 	};
 
-	static const int m_iAnimIDMax=17;
+	static const int m_iAnimIDMax=18;
 
 	// #### アニメーション固有情報管理クラス
 	// 全てのアニメーション固有情報が格納されたコンテナを管理するためのシングルトン
@@ -184,6 +186,7 @@ public:
 	// #### 補助メソッド ####
 	
 	// スティックの傾きの方向からEntityの移動方向を計算する
+	// * 大きさはオリジナルのスティックの傾きの大きさを使用
 	Vector3D calcMovementDirFromStick();
 
 private:
@@ -205,10 +208,17 @@ public:
 	// 今のState名を取得
 	string DBG_getCurrentStateName();
 
-	// State->calcで更新される前の物理情報を退避
-	Vector3D DBG_m_vVelocitySave;
-	void DBG_UpdateSavePhys();  // 退避させておいた物理情報の更新
-	Vector3D DBG_m_vTurnDestination; // OneEightyDegreeTurn::m_vTurnDestination のコピー
+	// 退避させておいた物理情報の更新
+	void DBG_UpdateSavePhys();  
+	
+	// DBG_renderStickTiltAndHeading() で使用
+	Vector3D DBG_m_vVelocitySave;    // State->calcで更新される前の速度値を退避
+	Vector3D DBG_m_vTurnDestination; // 切返し中の切返し方向（OneEightyDegreeTurn::m_vTurnDestination の退避）
+	Vector3D DBG_m_vSteeringForce;   // オリジナルの働く力（SurfaceMove::Calculate::vSteeringForce の退避）
+	Vector3D DBG_m_vCentripetalForce;      // 向心力                      （SurfaceMove::Calculate の退避）※ルンゲクッタ法を使用しているため正確ではない
+	Vector3D DBG_m_vDriveForceForVel;      // 速度方向の推進力            （SurfaceMove::Calculate の退避）※ルンゲクッタ法を使用しているため正確ではない
+	bool DBG_m_bCentripetalForceIsBounded; // 向心力が上限に達したかのflg （SurfaceMove::Calculate の退避）※ルンゲクッタ法を使用しているため正確ではない
+	bool DBG_m_bTurnWithouReduceSpeed;     // 速度を落とさず旋回かのflg   （SurfaceMove::Calculate の退避）
 
 	// 切返し動作（OneEightyDegreeTurn）について各サブ状態の継続時間を出力する
 	void DBG_exp_OneEightyDegreeTurn_SubStateDurations( int &c );  // なんて汚い名前なんだ...

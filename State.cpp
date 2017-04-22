@@ -577,10 +577,11 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	Vector3D vSteeringForce = eta * TerminalVel;
 	Vector3D vArrangeSteeringForce = SensitivityCoefForTurning * vSteeringForce;
 
-	// DBG
+	// DBG用に変数退避
 	DBG_m_vSteeringForce = vSteeringForce;
 
 	// ##### 旋回時の挙動改善
+	double DriveForce = 0;
 
 	if( pEntity->m_eMoveLevel == PlayerCharacterEntity::MvLvWalking )
 	//if( pEntity->Velocity().sqlen() < ThresholdSpeedRunToWark )
@@ -591,6 +592,9 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 
 		assert( PhyVar.Force.y==0 );
 
+		// DBG
+		pEntity->DBG_m_bTurnWithouReduceSpeed = false;
+
 	}
 	else
 	{
@@ -600,7 +604,7 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 		// 推進力の計算
 		//   スティックが進行方向とは逆方向の場合は推進力 FDrive を切返しの動作の開始条件である
 		//   速度閾値以上にならないように調整
-		double DriveForce = vSteeringForce.len();
+		DriveForce = vSteeringForce.len();
 
 		if( vStickTiltFromCam * pEntity->Heading() <= 0 )
 		{
@@ -611,7 +615,7 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 			}
 		}
 
-		Vector3D vDriveForce = DriveForce * pEntity->Heading();
+		//Vector3D vDriveForce = DriveForce * pEntity->Heading();
 	
 		// 次のタイムステップの速度・位置を計算
 		// * ルンゲクッタ法適用
@@ -622,6 +626,9 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 		Vector3D vSumK, vSumL;
 		Vector3D vVel = pEntity->Velocity(), vNxtVel;
 		Vector3D vUpper = pEntity->Uppder();
+
+		// DBG
+		DBG_m_bCentripetalForceIsBounded = false; // 初期化
 
 		// K1の計算
 		vL = calculateForce( vVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
@@ -660,7 +667,28 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 
 		assert( PhyVar.VelVar.y==0 );
 
+		// DBG
+		pEntity->DBG_m_bTurnWithouReduceSpeed = true;
+
 	}
+
+	// #### デバック用に退避
+
+	// DBG_m_vDriveForceForVel と DBG_m_vCentripetalForce の退避
+	Vector3D vHeading = pEntity->Heading();
+	Vector3D vSide    = vHeading % pEntity->Uppder();
+	pEntity->DBG_m_vCentripetalForce = m_dCentripetalForce * vSide;
+	pEntity->DBG_m_vDriveForceForVel = DriveForce * vHeading;
+
+	// DBG_m_vSteeringForce の退避
+	pEntity->DBG_m_vSteeringForce = DBG_m_vSteeringForce;
+
+	// DBG_m_bCentripetalForceIsBounded の退避
+	// ローカル DBG_m_bCentripetalForceIsBounded は SurfaceMove::calculateForce 内で収集している。
+	pEntity->DBG_m_bCentripetalForceIsBounded = DBG_m_bCentripetalForceIsBounded; 
+
+	// DBG_m_bTurnWithouReduceSpeed は処理内で退避
+
 
 	return;
 }
@@ -670,6 +698,8 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 //   走り始めにEntity向きが振動する対策として、
 //   CentripetalForce　ではなく、vSteeringForce を渡し、
 //   その都度 CentripetalForce を計算する用に変更。
+// 2017/04/22
+//   いくらかリファクタリング
 Vector3D SurfaceMove::calculateForce( 
 		Vector3D vVel, 
 		Vector3D vUpper,
@@ -681,16 +711,14 @@ Vector3D SurfaceMove::calculateForce(
 {
 	// Entity速度(Input)から操舵力の向きを再計算
 	Vector3D vHeading = vVel.normalize();
-	Vector3D vSide = VCross( vHeading.toVECTOR(), vUpper.toVECTOR() );
+	Vector3D vSide    = vHeading % vUpper;
 
 	// vArrangeSteeringForce から CentripetalForce を計算
 	double CentripetalForce = vArrangeSteeringForce * vSide ;
+
 	// カットオフ処理
-	if( fabs(CentripetalForce) > MaxCentripetalForce )
-	{
-		double sgn =  (double)( (CentripetalForce>0) - (CentripetalForce<0) );
-		CentripetalForce = sgn * MaxCentripetalForce;
-	}
+	// DBG_m_bCentripetalForceIsBounded の設定はデバッグ用
+	if( cutoff( CentripetalForce, MaxCentripetalForce ) ) DBG_m_bCentripetalForceIsBounded = true;
 
 	// 最終的な操舵力を計算
 	Vector3D vSteering = DriveForce * vHeading + CentripetalForce * vSide;
@@ -993,10 +1021,12 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			pEntity->StopWatchOn();
 
 			// 切返ししながら飛び出すアニメーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnFinalFly );
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::DEMO_TurnFinalFly );
+			pEntity->m_pAnimMgr->ReserveAnim( PlayerCharacterEntity::TurnFinalFly, 2.0 );
 
 			// TurnFlyDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
-			float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
+			//float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
+			float AnimTotalTime = 9.0 + 5.0 ; // DEMO_TurnFinalFlyの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
 			float PlayPitch = (float)(AnimTotalTime/TurnFlyDulation) ;
 			pEntity->m_pAnimMgr->setPitch(PlayPitch);
 

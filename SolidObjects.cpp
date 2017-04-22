@@ -1163,6 +1163,389 @@ void Arrow3D::Render( Vector3D vBgn, Vector3D vEnd, Vector3D vUpper )
 
 };
 
+// ###############################################
+// ########## class BasicFig_Base
+// ###############################################
+
+// コンストラクタ
+// - 図形の特性に合わせて、様々な初期化方法になる。
+//--------------------------
+BasicFig_Base::BasicFig_Base( 
+		int       PolygonNum,       // ポリゴン（三角形）数
+		COLOR_U8  DifColor,         // 頂点ディフューズカラー
+		COLOR_U8  SpcColor          // 球の頂点スペキュラカラー
+		) : 
+		m_iPolygonNum(PolygonNum)
+{
+	m_iVectexNum = 3* m_iPolygonNum ;
+	
+	//   - ポインタのメモリ確保。
+	// Vectexのメモリを確保
+	m_pVertex   = new VERTEX3D[m_iVectexNum];
+	m_pOrgVertx = new Vector3D[m_iVectexNum];
+	m_pOrgNorms = new Vector3D[m_iVectexNum];
+
+	//   - m_pVertex へ色（＋α）の設定。
+	// color と使わない要素を代入する
+	for( int i=0; i<m_iVectexNum; i++ )
+	{
+		m_pVertex[i].pos  = m_pOrgVertx[i].toVECTOR();
+		m_pVertex[i].norm = m_pOrgNorms[i].toVECTOR();
+		m_pVertex[i].dif  = DifColor; //DifColor;
+		m_pVertex[i].spc  = SpcColor; //SpcColor;
+		m_pVertex[i].u    = 0.0f;
+		m_pVertex[i].v    = 0.0f;
+		m_pVertex[i].su   = 0.0f;
+		m_pVertex[i].sv   = 0.0f;
+	}
+
+};
+
+// 基本変形の実施
+// - オリジナルのvertexに適用される（=図形のデフォルトの姿勢）
+//--------------------------
+void BasicFig_Base::setDefault( const MATRIX &Mat )
+{
+	for( int i=0; i<m_iVectexNum; i++ )
+	{
+		m_pOrgVertx[i]  = VTransform(   m_pOrgVertx[i].toVECTOR() , Mat );
+		m_pOrgNorms[i]  = VTransformSR( m_pOrgNorms[i].toVECTOR() , Mat ); // 法線ベクトルも変換が必要になる
+	}
+
+	// * m_pVertex を更新（setMatrix を実行）。
+	setMatrix(m_MTransMat);
+
+};
+
+// 座標変換行列の設定
+// - 描画時に適用される変形
+//--------------------------
+void BasicFig_Base::setMatrix( const MATRIX &Mat )
+{
+	// 行列を m_MTransMat に保存
+	m_MTransMat = Mat;
+
+	// * m_pOrgVertx/m_pOrgNorms → m_pVertex へ代入。
+	// * m_pVertex に TransMat の座標変換を実施
+	for( int i=0; i<m_iVectexNum; i++ )
+	{
+		m_pVertex[i].pos   = VTransform(   m_pOrgVertx[i].toVECTOR() , m_MTransMat );
+		m_pVertex[i].norm  = VTransformSR( m_pOrgNorms[i].toVECTOR() , m_MTransMat ); // 法線ベクトルも変換が必要になる
+	}
+
+};
+
+// 描画
+//--------------------------
+void BasicFig_Base::Render() 
+{
+	// * 描画
+	DrawPolygon3D( m_pVertex, m_iPolygonNum, DX_NONE_GRAPH, FALSE ) ;
+
+};
+
+
+// ###############################################
+// ########## class BasicFig_Column : BasicFig_Base
+// ###############################################
+
+// コンストラクタ
+BasicFig_Column::BasicFig_Column( 
+		Vector3D  CenterPos,       // 底面の円形の中心位置
+		double    Radius,          // 半径
+		double    Hight,           // 円柱の高さ
+		int       DivNum,          // 分割数（＝底面の円形の分割数）
+		COLOR_U8  DifColor,        // 頂点ディフューズカラー
+		COLOR_U8  SpcColor         // 球の頂点スペキュラカラー
+		) :
+		BasicFig_Base( DivNum*4, DifColor, SpcColor )
+{
+	// ポリゴン数：
+	// DivNum * 4(上面・底辺・側面（２倍）) 
+
+	// 後は前に作成した円柱クラスのロジックをコピー
+	// 分割数から正多角形の中心角を計算
+	double CenterAng = 2*DX_PI_F/((double)DivNum);
+	
+	Vector3D V3D0B( 0,  0,0 );
+	Vector3D V3D0T( 0,1.0,0 );
+
+	for( int i=0; i<DivNum; i++ )
+	{
+		int j=(i+1)%DivNum; // 次の添字（円順対応）
+		Vector2D V2D1( cos(CenterAng*i), sin(CenterAng*i) );
+		Vector2D V2D2( cos(CenterAng*j), sin(CenterAng*j) );
+		Vector2D V2Dn( cos(CenterAng*((double)i+0.5)), sin(CenterAng*((double)i+0.5)) ); // 法線
+		
+		Vector3D V3D1B = V2D1.toVector3D();
+		Vector3D V3D1T = V2D1.toVector3D(1.0);
+		Vector3D V3D2B = V2D2.toVector3D();
+		Vector3D V3D2T = V2D2.toVector3D(1.0);
+		Vector3D V3Dn  = V2Dn.toVector3D();
+
+		// 底面
+		m_pOrgVertx[ 12*i+3*0+0 ]  = V3D0B;
+		m_pOrgVertx[ 12*i+3*0+1 ]  = V3D1B;
+		m_pOrgVertx[ 12*i+3*0+2 ]  = V3D2B;
+		for( int k=0; k<3; k++) m_pOrgNorms[ 12*i+3*0+k ] = Vector3D( 0, -1.0, 0);
+
+		// 側面１
+		m_pOrgVertx[ 12*i+3*1+0 ]  = V3D1T;
+		m_pOrgVertx[ 12*i+3*1+1 ]  = V3D1B;
+		m_pOrgVertx[ 12*i+3*1+2 ]  = V3D2B;
+		for( int k=0; k<3; k++) m_pOrgNorms[ 12*i+3*1+k ] = V3Dn;
+
+		// 側面２
+		m_pOrgVertx[ 12*i+3*2+0 ]  = V3D2B;
+		m_pOrgVertx[ 12*i+3*2+1 ]  = V3D1T;
+		m_pOrgVertx[ 12*i+3*2+2 ]  = V3D2T;
+		for( int k=0; k<3; k++) m_pOrgNorms[ 12*i+3*2+k ] = V3Dn;
+
+		// 上面
+		m_pOrgVertx[ 12*i+3*3+0 ]  = V3D0T;
+		m_pOrgVertx[ 12*i+3*3+1 ]  = V3D1T;
+		m_pOrgVertx[ 12*i+3*3+2 ]  = V3D2T;
+		for( int k=0; k<3; k++) m_pOrgNorms[ 12*i+3*3+k ] = Vector3D( 0, 1.0, 0);
+
+	}
+	
+	// シフト、スケーリングする
+	for( int i=0; i<m_iVectexNum; i++ )
+	{
+		Vector3D tmp = m_pOrgVertx[i];
+		tmp.x *= Radius;
+		tmp.z *= Radius;
+		tmp.y *= Hight;
+		tmp += CenterPos;
+		m_pOrgVertx[i] = tmp;
+	}
+
+	// 行列の初期値（単位行列）の設定とm_pVertex の初期化
+	// * 全ての基本図形クラスで実施が必要。
+	setMatrix(MGetIdent());
+
+};
+
+// ###############################################
+// ########## class BasicFig_Column : BasicFig_Base
+// ###############################################
+
+// コンストラクタ
+BasicFig_Cone::BasicFig_Cone( 
+		Vector3D  CenterPos,       // 底面の円形の中心位置
+		double    Radius,          // 半径
+		double    Hight,           // 円錐の高さ
+		int       DivNum,          // 分割数（＝底面の円形の分割数）
+		COLOR_U8  DifColor,        // 頂点ディフューズカラー
+		COLOR_U8  SpcColor         // 球の頂点スペキュラカラー
+		) :
+		BasicFig_Base( DivNum*2, DifColor, SpcColor )
+{
+	// ポリゴン数：
+	// DivNum * 2(底辺・側面) 
+
+	// 後は前に作成した円柱クラスのロジックをコピー
+	// 分割数から正多角形の中心角を計算
+	double CenterAng = 2*DX_PI_F/((double)DivNum);
+	
+	Vector3D V3D0B( 0,  0,0 );
+	Vector3D V3D0T( 0,1.0,0 );
+
+	for( int i=0; i<DivNum; i++ )
+	{
+		int j=(i+1)%DivNum; // 次の添字（円順対応）
+		Vector2D V2D1( cos(CenterAng*i), sin(CenterAng*i) );
+		Vector2D V2D2( cos(CenterAng*j), sin(CenterAng*j) );
+		
+		Vector3D V3D1B = V2D1.toVector3D();
+		Vector3D V3D2B = V2D2.toVector3D();
+
+		// 底面
+		m_pOrgVertx[ 6*i+3*0+0 ]  = V3D0B;
+		m_pOrgVertx[ 6*i+3*0+1 ]  = V3D1B;
+		m_pOrgVertx[ 6*i+3*0+2 ]  = V3D2B;
+		for( int k=0; k<3; k++) m_pOrgNorms[ 6*i+3*0+k ] = Vector3D( 0, -1.0, 0);
+
+		// 側面１
+		m_pOrgVertx[ 6*i+3*1+0 ]  = V3D0T;
+		m_pOrgVertx[ 6*i+3*1+1 ]  = V3D1B;
+		m_pOrgVertx[ 6*i+3*1+2 ]  = V3D2B;
+
+		// 法線方向は外積から計算する
+		for( int k=0; k<3; k++) m_pOrgNorms[ 6*i+3*1+k ] = ((V3D2B-V3D0T)%(V3D1B-V3D0T)).normalize();
+
+	}
+	
+	// シフト、スケーリングする
+	for( int i=0; i<m_iVectexNum; i++ )
+	{
+		Vector3D tmp = m_pOrgVertx[i];
+		tmp.x *= Radius;
+		tmp.z *= Radius;
+		tmp.y *= Hight;
+		tmp += CenterPos;
+		m_pOrgVertx[i] = tmp;
+	}
+
+	// 行列の初期値（単位行列）の設定とm_pVertex の初期化
+	// * 全ての基本図形クラスで実施が必要。
+	setMatrix(MGetIdent());
+
+};
+
+// ###############################################
+// ########## class CoordinateAxisModel
+// ###############################################
+
+// コンストラクタ
+CoordinateAxisModel::CoordinateAxisModel(
+		double thickness,		// 座標軸の太さ（＝矢印大きさ）
+		double axis_x_length,	// Ｘ軸の長さ
+		double axis_y_length,	// Ｙ軸の長さ
+		double axis_z_length	// Ｚ軸の長さ
+		)
+{
+	// 各基本図形の寸法を決めるための計算。
+	
+	// * 軸の棒部分の半径     = thickness
+	// * 軸の先端の円錐の半径 = thickness * 1.5
+	// * 軸の先端の円錐の高さ = thickness * 2.0
+
+	double scale_botom = 2.0; 
+	double scale_hight = 4.0;
+
+	// 基本図形のインスタンス化
+
+	m_pAxisX_Bar = new BasicFig_Column( 
+		Vector3D( 0, 0, 0 ),
+		thickness,
+		axis_x_length,
+		32,
+		GetColorU8( 255, 0, 0, 0 ),
+		GetColorU8( 255, 0, 0, 0 )
+		);
+
+	m_pAxisY_Bar = new BasicFig_Column( 
+		Vector3D( 0, 0, 0 ),
+		thickness,
+		axis_y_length,
+		32,
+		GetColorU8( 0, 255, 0, 0 ),
+		GetColorU8( 0, 255, 0, 0 )
+		);
+
+	m_pAxisZ_Bar = new BasicFig_Column( 
+		Vector3D( 0, 0, 0 ),
+		thickness,
+		axis_z_length,
+		32,
+		GetColorU8( 0, 0, 255, 0 ),
+		GetColorU8( 0, 0, 255, 0 )
+		);
+
+	m_pAxisX_Tip = new BasicFig_Cone( 
+		Vector3D( 0, 0, 0 ),
+		scale_botom * thickness,
+		scale_hight * thickness,
+		32,
+		GetColorU8( 255, 0, 0, 0 ),
+		GetColorU8( 255, 0, 0, 0 )
+		);
+
+	m_pAxisY_Tip = new BasicFig_Cone( 
+		Vector3D( 0, 0, 0 ),
+		scale_botom * thickness,
+		scale_hight * thickness,
+		32,
+		GetColorU8( 0, 255, 0, 0 ),
+		GetColorU8( 0, 255, 0, 0 )
+		);
+
+	m_pAxisZ_Tip = new BasicFig_Cone( 
+		Vector3D( 0, 0, 0 ),
+		scale_botom * thickness,
+		scale_hight * thickness,
+		32,
+		GetColorU8( 0, 0, 255, 0 ),
+		GetColorU8( 0, 0, 255, 0 )
+		);
+
+	// 基本図形の位置向きの設定
+	MATRIX Msft;
+	MATRIX Mrot;
+	MATRIX Mwrk;
+
+	// 矢印の形を作ってから、軸の方向に倒す。
+	// → 上方向へ軸の長さ分だけシフトから軸方向へ回転
+
+	// Ｘ軸
+	Msft = MGetTranslate( Vector3D( 0, axis_x_length, 0 ).toVECTOR() );
+	Mrot = MGetRotZ( -DX_PI_F/2 ); // X軸向きは反対になるようにする
+
+	Mwrk = MMult( Msft, Mrot );
+	m_pAxisX_Tip->setDefault(Mwrk);
+	m_pAxisX_Bar->setDefault(Mrot);
+
+	// Ｙ軸
+	Msft = MGetTranslate( Vector3D( 0, axis_y_length, 0 ).toVECTOR() );
+	Mrot = MGetIdent();
+
+	Mwrk = MMult( Msft, Mrot );
+	m_pAxisY_Tip->setDefault(Mwrk);
+	m_pAxisY_Bar->setDefault(Mrot);
+
+	// Ｚ軸
+	Msft = MGetTranslate( Vector3D( 0, axis_z_length, 0 ).toVECTOR() );
+	Mrot = MGetRotX( DX_PI_F/2 );
+
+	Mwrk = MMult( Msft, Mrot );
+	m_pAxisZ_Tip->setDefault(Mwrk);
+	m_pAxisZ_Bar->setDefault(Mrot);
+
+};
+
+void CoordinateAxisModel::setMatrix( const MATRIX &Mat )
+{
+	// 各基本図形をsetMatrixするだけ
+	m_pAxisX_Tip->setMatrix( Mat );
+	m_pAxisX_Bar->setMatrix( Mat );
+	m_pAxisY_Tip->setMatrix( Mat );
+	m_pAxisY_Bar->setMatrix( Mat );
+	m_pAxisZ_Tip->setMatrix( Mat );
+	m_pAxisZ_Bar->setMatrix( Mat );
+
+};
+
+void CoordinateAxisModel::Render()
+{
+	// 各基本図形をRenderするだけ
+	m_pAxisX_Tip->Render();
+	m_pAxisX_Bar->Render();
+	m_pAxisY_Tip->Render();
+	m_pAxisY_Bar->Render();
+	m_pAxisZ_Tip->Render();
+	m_pAxisZ_Bar->Render();
+
+};
+
+// 後は、このクラスの動作確認
+// 表示可能か？
+// 変形可能か？
+// → 完了
+
+// 円錐クラスの作成
+// * 考える必要があるとすれば、法線ベクトルの計算をどうやってやるか。
+// → 完了（多分）
+
+// キャラクタローカル座標モデル（応用図形クラス）の作成
+// → 21:09 完了。
+
+// モデルをキャラクタのローカル座標に描画させる
+
+
+// 今日は図書館に行かなくていいや...
+// 記事作成に邁進したい......
+
 
 
 

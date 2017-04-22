@@ -116,3 +116,35 @@ inline int DrawTriangle2D( Point2D V1, Point2D V2, Point2D V3, unsigned int Colo
 		Color ,
 		FillFlag ) ;
 };
+
+// 矢印 - 先端が線のタイプ
+void DrawArrow2D( Vector2D bgn, Vector2D end, unsigned int Color, int FillFlag = FALSE, int Thickness=1 );
+
+// 色を決める時にいちいちGetColor関数でRGB指定するストレスから開放するため
+class ColorPalette
+{
+public:
+	static const int Red;    // 赤
+	static const int Blue;   // 青
+	static const int Green;  // 緑
+	static const int Cyan;   // シアン
+	static const int Yellow; // 黄色
+
+};
+
+// ################## その他 #######################
+
+// カットオフ関数
+// 戻り値：カットオフ実施ならtrue
+inline bool cutoff( double &val , const double MAX )
+{
+	// カットオフ処理
+	if( fabs(val) > MAX )
+	{
+		val = (double)( (val>0) - (val<0) ) * MAX;
+		return true;
+	}
+
+	return false;
+};
+
