@@ -24,6 +24,9 @@
 #include "DEMO_DashTurnBehavior.h"
 
 
+// 2017/04/23
+// 新PCからコミットテステス
+
 // ########### 制御用 defin ###########
 
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
