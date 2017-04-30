@@ -577,6 +577,10 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	Vector3D vSteeringForce = eta * TerminalVel;
 	Vector3D vArrangeSteeringForce = SensitivityCoefForTurning * vSteeringForce;
 
+	// 向心力の上限値を計算（スティックの傾きの大きさに比例するようにする）
+	//double LimitCentripetalForce = MaxCentripetalForce * pEntity->m_pVirCntrl->m_dStickL_len;
+	double LimitCentripetalForce = MaxCentripetalForce;
+
 	// DBG用に変数退避
 	DBG_m_vSteeringForce = vSteeringForce;
 
@@ -631,28 +635,28 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 		DBG_m_bCentripetalForceIsBounded = false; // 初期化
 
 		// K1の計算
-		vL = calculateForce( vVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
+		vL = calculateForce( vVel, vUpper, vArrangeSteeringForce, DriveForce, eta, LimitCentripetalForce, m_dCentripetalForce )/pEntity->Mass();
 		vK = vVel;
 		vSumK = vK;
 		vSumL = vL;
 
 		// K2の計算
 		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, LimitCentripetalForce, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += 2*vK;
 		vSumL += 2*vL;
 
 		// K3の計算
 		vNxtVel = vVel+0.5*pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, LimitCentripetalForce, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += 2*vK;
 		vSumL += 2*vL;
 
 		// K4の計算
 		vNxtVel = vVel+pEntity->TimeElaps()*vL;
-		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, m_dCentripetalForce )/pEntity->Mass();
+		vL = calculateForce( vNxtVel, vUpper, vArrangeSteeringForce, DriveForce, eta, LimitCentripetalForce, m_dCentripetalForce )/pEntity->Mass();
 		vK = vNxtVel;
 		vSumK += vK;
 		vSumL += vL;
@@ -706,6 +710,7 @@ Vector3D SurfaceMove::calculateForce(
 		Vector3D vArrangeSteeringForce,
 		double DriveForce,
 		double eta,
+		double LimitCentripetalForce,
 		double &outCentripetalForce
 		)
 {
@@ -718,7 +723,7 @@ Vector3D SurfaceMove::calculateForce(
 
 	// カットオフ処理
 	// DBG_m_bCentripetalForceIsBounded の設定はデバッグ用
-	if( cutoff( CentripetalForce, MaxCentripetalForce ) ) DBG_m_bCentripetalForceIsBounded = true;
+	if( cutoff( CentripetalForce, LimitCentripetalForce) ) DBG_m_bCentripetalForceIsBounded = true;
 
 	// 最終的な操舵力を計算
 	Vector3D vSteering = DriveForce * vHeading + CentripetalForce * vSide;

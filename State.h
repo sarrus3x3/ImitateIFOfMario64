@@ -174,6 +174,7 @@ public:
 		Vector3D vArrangeSteeringForce,
 		double DriveForce,
 		double eta,
+		double LimitCentripetalForce,
 		double &CentripetalForce // ŒvZ‚µ‚½ŒüS—Í‚ğ•Ô‚·
 		);
 
