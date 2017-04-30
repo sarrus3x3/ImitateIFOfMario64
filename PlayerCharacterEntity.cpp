@@ -158,10 +158,9 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 	// カメラのビュー行列をEntityのローカル座標でのものに設定
 	SetCameraViewMatrix( CameraWorkManager::Instance()->m_MViewLocal );
 
-	static const Vector3D vPosOrign   = Vector3D( 0.0, 0.0, 0.0 );
-	static const Vector2D vPosOrign2D = Vector2D( 0.0, 0.0 );
-	static const Vector2D vPosUpper2D = Vector2D( 0.0, 1.0 );
-	static const Vector3D vBaseY = Vector3D( 0.0, 1.0, 0.0 );
+	static const Vector3D vPosOrign      = Vector3D( 0.0,  0.0, 0.0 );
+	static const Vector3D vDirStickUpper = Vector3D( 0.0, -1.0, 0.0 ); // スティック座標？における上方向。y軸下向き座標系であることに注意。
+	static const Vector3D vBaseY         = Vector3D( 0.0,  1.0, 0.0 );
 
 // 画面上のスティックの傾きをキャラクタ平面に投影し、進行方向を決定する方式
 #ifndef SAVE_ANGLE_VARIATION
@@ -201,13 +200,17 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 // スティックの傾きをキャラクタ平面へ剛体変換して進行方向を決定する方式
 #ifdef SAVE_ANGLE_VARIATION
 
+	// スクリーン上のEntity位置を計算
+	Vector3D EntiPosForScreen = ConvWorldPosToScreenPos(vPosOrign.toVECTOR());
+	assert(EntiPosForScreen.z >= 0.0 && EntiPosForScreen.z <= 1.0);
+
 	// ## 画面上方向をキャラクタ平面に投影した向きを計算する
 
 	// 画面中央位置をキャラクタ平面に投影した座標を計算する
-	Vector3D vScreenCntPrj = convScreenPosToXZPlane( vPosOrign2D );
+	Vector3D vScreenCntPrj = convScreenPosToXZPlane(EntiPosForScreen);
 
 	// 画面上の上方向ベクトルをキャラクタ平面に投影した座標を計算する
-	Vector3D vScreenUprPrj = convScreenPosToXZPlane( vPosUpper2D );
+	Vector3D vScreenUprPrj = convScreenPosToXZPlane(EntiPosForScreen+ vDirStickUpper);
 
 	Vector3D vBaseZ = (vScreenUprPrj - vScreenCntPrj).normalize();
 	Vector3D vBaseX = vBaseY % vBaseZ ;
@@ -250,11 +253,12 @@ Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
 
 };
 
-Vector3D PlayerCharacterEntity::convScreenPosToXZPlane( Vector2D ScreenPos )
+// 2017/04/30 処理を少し変更
+// y方向"上"座標系→y方向"下"座標系（Windows座標）への変換処理を削除。
+// i.e. はじめからy方向"下"座標系（Windows座標）である前提での計算。
+// はじめから3Dベクトルを渡すようにする。
+Vector3D PlayerCharacterEntity::convScreenPosToXZPlane(Vector3D vScreenPos3D)
 {
-	Vector3D vScreenPos3D;
-	vScreenPos3D.x =  ScreenPos.x;
-	vScreenPos3D.y = -ScreenPos.y;
 
 	vScreenPos3D.z = 0.0;
 	Vector3D BgnPos = ConvScreenPosToWorldPos( vScreenPos3D.toVECTOR() );

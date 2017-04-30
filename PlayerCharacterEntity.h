@@ -191,7 +191,7 @@ public:
 
 private:
 	// スクリーン上の座標（スクリーンローカル座標）をXZ平面に投影した座標を計算する（内部的に ConvScreenPosToWorldPos を使用）
-	inline Vector3D convScreenPosToXZPlane( Vector2D ScreenPos );
+	inline Vector3D convScreenPosToXZPlane(Vector3D vScreenPos3D);
 
 	// #### 暫定 ####
 public:
