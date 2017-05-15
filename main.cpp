@@ -288,7 +288,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		GameWorldCounter++;
 
 		// ################## コントローラーを更新 #######################
-		VController.Update();
+		VController.Update( timeelaps );
 
 		// もし、Bボタン（Ctrlキー）が押されたら、カメラモードを変更
 		if( VController.ButB.isNowPush() )
@@ -315,8 +315,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// Yボタン（yキー）が押されたら、ボーン表示／モデル表示切替
 		if( VController.ButY.isNowPush() )
 		{
+			// 自動操作モードオン／オフ
+			VController.AutoControlOnOff();
+
+			/*
 			PCEnti.m_pAnimMgr->ExpBoneOfPhysicsPart( !PCEnti.m_pAnimMgr->getCurBoneExpress() );
 			MV1PhysicsResetState( PCEnti.m_pAnimMgr->DBG_getModelHandle() ); // 物理演算状態をリセット（これで発散するのが回避できる？）→ 上手くいかない
+			*/
 		}
 
 		// アニメーション物理演算のタイムステップを制御する

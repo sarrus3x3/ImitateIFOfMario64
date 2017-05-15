@@ -14,7 +14,10 @@ VirtualController::VirtualController() :
 	DownPushCnt(0), 
 	LeftPushCnt(0), 
 	RightPushCnt(0),
-	m_eInpuDeviceMode( ID_KeyBord )
+	m_eInpuDeviceMode( ID_KeyBord ),
+	m_bAutoControlFlg(false),
+	m_dTimeSinceAutoControlStart(0)
+
 {
 	// 内容を設定
 	controllerscale = 8.0;
@@ -103,7 +106,7 @@ VirtualController::VirtualController() :
 
 };
 
-void VirtualController::Update()
+void VirtualController::Update( double time_elapsed )
 {
 	switch( m_eInpuDeviceMode )
 	{
@@ -112,6 +115,7 @@ void VirtualController::Update()
 		break;
 	case ID_GamePad:
 		UpdateAsGamePad();
+		if (m_bAutoControlFlg) UpdateAutoControl(time_elapsed);
 		break;
 	}
 }
@@ -253,10 +257,18 @@ void VirtualController::UpdateAsGamePad()
 	m_vStickR.x = (double)(m_XinputState.ThumbRX)/MaxOut;
 	m_vStickR.y = (double)(m_XinputState.ThumbRY)/MaxOut;
 
+	// スティックの傾きが十分に小さい場合は 0 にカットオフする
+	RoundingTinyStickTilt();
+
+};
+
+// スティックの傾きが十分に小さい場合は 0 にカットオフする
+void VirtualController::RoundingTinyStickTilt()
+{
 	double lentmp;
 	// 左
 	lentmp = m_vStickL.len();
-	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
+	if (lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD)
 	{
 		m_dStickL_len = 0.0;
 		m_vStickL.x = 0.0;
@@ -266,7 +278,7 @@ void VirtualController::UpdateAsGamePad()
 
 	// 右
 	lentmp = m_vStickR.len();
-	if( lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD )
+	if (lentmp < dANALOG_STICK_TILT_IGNORE_THRESHOLD)
 	{
 		m_dStickR_len = 0.0;
 		m_vStickR.x = 0.0;
@@ -503,3 +515,58 @@ void VirtualController::DBG_ShowXinputState()
 	}
 };
 
+// ##### 動作検証のための自動操作機能
+
+//自動操作機能のON / OFFを設定するメソッド
+void VirtualController::AutoControlOnOff()
+{
+	// ON/OFF反転
+	m_bAutoControlFlg = !m_bAutoControlFlg;
+
+	// OFF→ON のときは初期化処理
+	if (m_bAutoControlFlg == true) m_dTimeSinceAutoControlStart = 0;
+
+};
+
+//自動操作をタイムススライスで更新
+void VirtualController::UpdateAutoControl(double TimeElaps)
+{
+	// * TimeSinceAutoControlStart の更新
+	m_dTimeSinceAutoControlStart += TimeElaps;
+
+	// * 自動操作シナリオにそってスティック状態（今のところこれだけ）を更新する。
+	
+	// 初期化
+	static int TotalSections = 4;     // 総区間数
+	
+	// 移動するスティック座標配列
+	static Vector2D StickPoss[4 + 1] = {Vector2D(0,0),Vector2D(1,0),Vector2D(1,0),Vector2D(-0.866,-0.5),Vector2D(-0.866,-0.5)};
+
+	// 時間配分の配列（累積値）
+	//static double   TimeAlloc[4 + 1] = { 0.0,0.5,5.0,0.5,5.0 };
+	static double   TimeAlloc[4 + 1] = {0.0,0.5,5.5,5.7,8.0};
+
+	Vector2D StickPos;
+	for (int i=0; i<TotalSections; i++)
+	{
+		if (TimeAlloc[i] <= m_dTimeSinceAutoControlStart && m_dTimeSinceAutoControlStart < TimeAlloc[i + 1])
+		{ // i 番目の区間に属していれば、
+			double raito = (m_dTimeSinceAutoControlStart - TimeAlloc[i]) / (TimeAlloc[i + 1] - TimeAlloc[i]);
+			StickPos = LerpV2D(StickPoss[i], StickPoss[i + 1], raito );
+
+			// スティック状態を更新
+			m_vStickL = StickPos;
+
+			// スティックの傾きが十分に小さい場合は 0 にカットオフする
+			RoundingTinyStickTilt();
+
+			return;
+		}
+	}
+
+	// 自動操作再生が完了したため、自動操作フラグをOFFにする
+	m_bAutoControlFlg = false;
+
+	return;
+
+};

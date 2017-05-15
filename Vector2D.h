@@ -272,3 +272,10 @@ inline C2DMATRIX C2DMGetRot( double Rotate )
 	return MRtn;
 };
 
+// ２次元ベクトルの線形補間
+// bgn と end を線形補間したベクトルを返す。
+// ratio = 0 なら bgn と一致。raito = 1 なら end と一致 という具合。
+inline Vector2D LerpV2D(Vector2D bgn, Vector2D end, double raito)
+{
+	return bgn + raito * (end - bgn);
+};

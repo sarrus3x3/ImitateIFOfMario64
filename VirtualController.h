@@ -69,6 +69,10 @@ private:
 	void UpdateAsKeyBord(); // KeyBordの場合のUpdate
 	void UpdateAsGamePad(); // GamePadの場合のUpdate
 
+	// スティックの傾きが十分に小さい場合は 0 にカットオフする
+	void RoundingTinyStickTilt();
+
+
 public:
 
 	// アナログスティック状態描画のためクラス
@@ -154,7 +158,7 @@ public:
 	VirtualController();
 
 	// コントローラー状態（入力状態）を更新する
-	void Update();
+	void Update( double time_elapsed );
 
 	// コントローラーを描画する
 	void Render( Vector2D pos );
@@ -163,6 +167,27 @@ public:
 
 	// m_XinputState の状態をデバック出力
 	void DBG_ShowXinputState();
+
+
+	// ##### 動作検証のための自動操作機能
+	// 動作の検証用に、事前に設計した操作(入力)を流し込む機能
+
+	//自動操作機能のON / OFFを設定するメソッド
+	void AutoControlOnOff();
+	//・Onのときは初期化
+	//- TimeSinceAutoControlStart の 0クリ
+
+	//自動操作機能の有効状態を管理するためのフラグ
+	bool m_bAutoControlFlg;
+
+	//自動操作をタイムススライスで更新
+	void UpdateAutoControl(double TimeElaps);
+
+	//自動操作開始してからの経過時間
+	double m_dTimeSinceAutoControlStart;
+
+	// 各変数の初期化を忘れずに。
+
 
 };
 

@@ -578,8 +578,8 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	Vector3D vArrangeSteeringForce = SensitivityCoefForTurning * vSteeringForce;
 
 	// 向心力の上限値を計算（スティックの傾きの大きさに比例するようにする）
-	//double LimitCentripetalForce = MaxCentripetalForce * pEntity->m_pVirCntrl->m_dStickL_len;
-	double LimitCentripetalForce = MaxCentripetalForce;
+	double LimitCentripetalForce = MaxCentripetalForce * pEntity->m_pVirCntrl->m_dStickL_len;
+	//double LimitCentripetalForce = MaxCentripetalForce;
 
 	// DBG用に変数退避
 	DBG_m_vSteeringForce = vSteeringForce;
