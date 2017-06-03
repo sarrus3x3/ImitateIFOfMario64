@@ -495,12 +495,19 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// アナログスティック状態とEntityの向きを描画
 		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 100 ) );
 
-		/*
-
 		// 現在のアニメーションの再生時間を出力
-		DrawFormatString( 0, width*colmun, 0xffffff, "Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
+		DrawFormatString( 0, width*colmun, 0xffffff, "Current Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
 		colmun++;
 
+		// 再生中のアニメーション情報を出力
+		DrawFormatString(0, width*colmun, 0xffffff, "Current  Anim Name:%s", PCEnti.m_pAnimMgr->getCurAnimName().c_str());
+		colmun++;
+
+		DrawFormatString(0, width*colmun, 0xffffff, "Previous Anim Name:%s", PCEnti.m_pAnimMgr->getPrvAnimName().c_str());
+		colmun++;
+
+		/*
+		// キャラクタのローカル座標情報を出力
 		DrawFormatString( 0, width*colmun, 0xffffff, "Head :%4f, %4f, %4f",PCEnti.Heading().x, PCEnti.Heading().y, PCEnti.Heading().z ); 
 		colmun++;
 
@@ -509,13 +516,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		DrawFormatString( 0, width*colmun, 0xffffff, "Upper:%4f, %4f, %4f",PCEnti.Uppder().x, PCEnti.Uppder().y, PCEnti.Uppder().z ); 
 		colmun++;
-
+		*/
 
 		// サブ状態の継続時間を出力
 		//PCEnti.DBG_exp_OneEightyDegreeTurn_SubStateDurations( colmun );
-
-		*/
-
 
 		/*
 		// Entityの移動レベルを表示

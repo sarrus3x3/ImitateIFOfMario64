@@ -1,5 +1,7 @@
 #include <queue>
 
+#include <cassert>
+
 #include "DxLib.h"
 #include "PlayerCharacterEntity.h"
 
@@ -212,6 +214,11 @@ public:
 
 	// ----- m_pCurAnimPlayInfoのアニメーション名を取得
 	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };
+
+	// ----- m_pPrvAnimPlayInfoのアニメーション名を取得
+	// これって、m_pPrvAnimPlayInfo がセットされていなかった場合の動作ってどうなるんだ？
+	// ま、大丈夫だろ。
+	string getPrvAnimName() { return m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };
 
 	// ----- m_pCurAnimPlayInfoの再生にかかる時間を取得
 	float getCurAnimLength(){ return m_pCurAnimPlayInfo->m_fAnimLength; };

@@ -148,3 +148,22 @@ inline bool cutoff( double &val , const double MAX )
 	return false;
 };
 
+inline int sgn(double x)
+{
+	return (x > 0 ? 1 : (x < 0 ? -1 : 0));
+};
+
+// Unity ‚Ì Mathf.MoveTowards ‚É‘Š“–
+// Å‘å‹——£ maxDelta ‚Å src ¨ tar ‚ÖˆÚ“®‚³‚¹‚½ˆÊ’u‚ð•Ô‚·B
+inline double MoveTowards( double src, double tar, double maxDelta )
+{
+	if (abs(tar - src) < maxDelta)
+	{
+		return tar;
+	}
+	else
+	{ 
+		return sgn(tar - src) * maxDelta + src;
+	}
+
+};

@@ -8,6 +8,11 @@
 
 #include <cassert>
 
+// ## 静的メンバの定義
+const double PlayerCharacterEntity::m_dConfigScaling = 9.0; // SuperMario64HDのコンフィグを移植するときのスケーリング変数
+
+// ここで定義して、別のソースファイルから読み込めるんだろうか？
+
 // #### コンストラクタ ####
 PlayerCharacterEntity::PlayerCharacterEntity(
 		Vector3D vPos,
@@ -126,6 +131,9 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 	//m_vSide = VCross( m_vHeading.toVECTOR(), m_vUpper.toVECTOR() );
 	m_vSide = m_vHeading % m_vUpper ;
 
+	//assert(m_vVelocity.y);
+	assert(m_vVelocity.len() < 1000.0);
+
 };
 
 void PlayerCharacterEntity::Render()
@@ -135,7 +143,7 @@ void PlayerCharacterEntity::Render()
 	m_pAnimMgr->Play(this);
 };
 
-Vector3D PlayerCharacterEntity::calcMovementDirFromStick()
+Vector3D PlayerCharacterEntity::MoveInput()
 {
 
 #define SAVE_ANGLE_VARIATION // スティック傾きから進行方向の計算方式の変更
@@ -344,8 +352,12 @@ void PlayerCharacterEntity::DBG_renderStickTiltAndHeading( Vector2D RenderPos )
 		DrawArrow2D( RenderPos, (RenderPos+vTmp), ColorPalette::Blue, FALSE );
 	}
 
+	// キャラクタ方向を描画
+	Vector2D vTmp = RenderRadius * Heading().toVector2D().reversY();
+	DrawArrow2D(RenderPos, (RenderPos + vTmp), ColorPalette::Blue, FALSE);
+
 	// アナログスティックの状態を描画
-	Vector3D StickPos = calcMovementDirFromStick();
+	Vector3D StickPos = MoveInput();
 	StickTrj.Render( StickPos.toVector2D(), RenderPos );
 
 	// 次は新PCに移行しようか。
@@ -487,20 +499,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimEndTime        = 33.35f;  // 重心が一番低いタイミング＋少し長めに取ってみる
 
 	// --------- Breaking --------- 
-	/*
-	pAnimUnq = &m_pAnimUniqueInfoContainer[Breaking];
-	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "Breaking"; 
-	pAnimUnq->m_CurAttachedMotion   = 4;
-	pAnimUnq->m_bRepeatAnimation    = false;
-	pAnimUnq->m_bCutPartAnimation   = true;
-	pAnimUnq->m_fAnimStartTime      = 0.0f; 
-	//pAnimUnq->m_fAnimEndTime        = 10.0f; 
-	pAnimUnq->m_fAnimEndTime        = 20.0f; 
-	//pAnimUnq->m_fUniquePlayPitch = (float)1.8;
-	*/
-
-	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Breaking];
 	pAnimUnq->init();
 	pAnimUnq->m_sAnimName = "Breaking"; 
@@ -509,31 +507,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation   = true;
 	pAnimUnq->m_fAnimStartTime      = 0.0f; 
 	pAnimUnq->m_fAnimEndTime        = 12.0f; 
-
-	// --------- Turning --------- 
-	/*
-	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
-	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "Turning"; 
-	pAnimUnq->m_CurAttachedMotion   = 4;
-	pAnimUnq->m_bRepeatAnimation    = false;
-	pAnimUnq->m_bCutPartAnimation   = true;
-	//pAnimUnq->m_fAnimStartTime      = 10.0f; 
-	pAnimUnq->m_fAnimStartTime      = 20.0f; 
-	pAnimUnq->m_fAnimEndTime        = 41.0f; 
-	//pAnimUnq->m_fAnimEndTime        = 38.0f; 
-	//pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 1.0 );
-	*/
-
-	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
-	pAnimUnq = &m_pAnimUniqueInfoContainer[Turning];
-	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "Turning"; 
-	pAnimUnq->m_CurAttachedMotion   = 8;
-	pAnimUnq->m_bRepeatAnimation    = false;
-	pAnimUnq->m_bCutPartAnimation   = true;
-	pAnimUnq->m_fAnimStartTime      = 12.0f; 
-	pAnimUnq->m_fAnimEndTime        = 19.0f; 
 
 	// --------- BreakAndTurn --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAndTurn];
@@ -548,14 +521,53 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 6;
 	pAnimUnq->m_bRepeatAnimation  = false;
 	pAnimUnq->m_fUniquePlayPitch = (float)2.0;
+	
+	// --------- TurnFirst --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFirst];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "TurnFirst"; 
+	pAnimUnq->m_CurAttachedMotion  = 8;
+	pAnimUnq->m_bRepeatAnimation   = false;
+	pAnimUnq->m_bCutPartAnimation  = true;
+	pAnimUnq->m_fAnimStartTime     = 12.0f; 
+	pAnimUnq->m_fAnimEndTime       = 19.0f; 
 
+	// --------- TurnLatter --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnLatter];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "TurnLatter";
+	pAnimUnq->m_CurAttachedMotion  = 8;
+	pAnimUnq->m_bRepeatAnimation   = false;
+	pAnimUnq->m_bCutPartAnimation  = true;
+	pAnimUnq->m_fAnimStartTime     = 19.0f;
+	pAnimUnq->m_fAnimEndTime       = 28.0f;
+
+	// --------- TurnFull --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFull];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "TurnFull";
+	pAnimUnq->m_CurAttachedMotion  = 8;
+	pAnimUnq->m_bRepeatAnimation   = false;
+	pAnimUnq->m_bCutPartAnimation  = true;
+	pAnimUnq->m_fAnimStartTime     = 12.0f;
+	pAnimUnq->m_fAnimEndTime       = 28.0f;
+
+	// --------- TurnFixHead --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFixHead];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "TurnFixHead";
+	pAnimUnq->m_CurAttachedMotion = 9;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 0.0f;
+	pAnimUnq->m_fAnimEndTime = 16.0f;
 
 	// --------- TurnFinalFly --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[TurnFinalFly];
 	pAnimUnq->init();
 	pAnimUnq->m_sAnimName = "TurnFinalFly";
 	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.5 );
-	pAnimUnq->m_CurAttachedMotion   = 0;
+	pAnimUnq->m_CurAttachedMotion   = 0; // 走りのモーションから切り出している
 	pAnimUnq->m_bRepeatAnimation    = false;
 	pAnimUnq->m_bCutPartAnimation   = true;
 	pAnimUnq->m_fAnimStartTime      = 20.0f;
@@ -579,16 +591,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 7;
 	pAnimUnq->m_bRepeatAnimation  = false;
 
-	// MMDモーションのインポートツール作成のブログ記事作成のデモ用
-	// --------- DEMO_TurnFinalFly --------- 
-	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_TurnFinalFly];
-	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "DEMO_TurnFinalFly"; 
-	pAnimUnq->m_CurAttachedMotion   = 8;
-	pAnimUnq->m_bRepeatAnimation    = false;
-	pAnimUnq->m_bCutPartAnimation   = true;
-	pAnimUnq->m_fAnimStartTime      = 19.0f; 
-	pAnimUnq->m_fAnimEndTime        = 28.0f; 
 
 
 };

@@ -3,6 +3,8 @@
 #include <string.h>
 //#include <iostream>
 
+#include <cassert>
+
 #include "DxLib.h"
 #include "Vector2D.h"
 
@@ -56,7 +58,7 @@ public:
 	//===演算子オーバーライド===
 
 	//和
-	Vector3D operator+( const Vector3D &vec )
+	Vector3D operator+( const Vector3D &vec ) const
 	{
 		Vector3D temp;
 		temp.x = x + vec.x;
@@ -66,7 +68,7 @@ public:
 	};
 
 	//差
-	Vector3D operator-( const Vector3D &vec )
+	Vector3D operator-( const Vector3D &vec ) const
 	{
 		Vector3D temp;
 		temp.x = x - vec.x;
@@ -76,7 +78,7 @@ public:
 	};
 
 	//内積
-	double operator*( const Vector3D &vec )
+	double operator*( const Vector3D &vec ) const
 	{
 		return x*vec.x + y*vec.y + z*vec.z;
 	};
@@ -149,7 +151,7 @@ public:
 	};
 
 	//単位ベクトルを返す.
-	Vector3D normalize()
+	Vector3D normalize() const
 	{
 		Vector3D tmp;
 		double len = this->len();
@@ -160,6 +162,16 @@ public:
 			tmp.z = z/len;
 		}
 		return tmp;
+	};
+
+	// 0ベクトルか判定
+	bool isZero() const
+	{
+		if (x == 0.0 && y == 0.0 && z == 0.0)
+		{
+			return true;
+		}
+		return false;
 	};
 	
 	// ベクトル vec が与えられたとき、this と vec の作る平面において 
@@ -223,6 +235,14 @@ inline Vector3D operator%( const Vector3D &vec1, const Vector3D &vec2 )
 	return tmp;
 };
 
+// ２つのベクトル間の角度を計算する。単位はラジアン。戻り値は 0 ～ π(180°) の間。
+inline double Angle3D(const Vector3D &vec1, const Vector3D &vec2)
+{
+	double cosval = (vec1*vec2) / (vec1.len()*vec2.len());
+	return acos(cosval);
+};
+
+
 // 与えられた線分とxz平面の交点を求める
 inline int calcCrossPointWithXZPlane( Vector3D bgn, Vector3D end, Vector3D &rslt )
 {
@@ -233,4 +253,65 @@ inline int calcCrossPointWithXZPlane( Vector3D bgn, Vector3D end, Vector3D &rslt
 	if( t<0 ) return -1;
 	else      return  0;
 	
+};
+
+// 最大 maxRadiansDelta の回転角（ラジアン）で、ベクトルsrc を tar方向へ回転させたベクトルを返す。
+// ただし、 src と tar 間の角が maxRadiansDelta に満たない場合は、tar を返す動き。
+// Unityの関数が元ネタ
+// 【前提条件】
+// ベクトル src, tar は規格化されていること。
+inline Vector3D RotateTowards3D(Vector3D src, Vector3D tar, double maxRadiansDelta)
+{
+	// 【考え方】
+	// y軸の正方向の回転＝x軸→z軸方向の回転
+	// また、基底ベクトルの外積では
+	//   ez × ex = ey
+	// したがって、Cur→Tarを正方向とする回転軸ベクトルは、
+	//   tar × src で得られる。
+	// ※ 左手座標系で考えていることに注意
+
+	// src と tar の成す角を計算
+	double prd = src*tar;
+
+	// 丸め？により、src と tar 内積が 1.0 より大きくなってしまう場合がある → その場合は acos の動作が保証されない
+	if( fabs(prd)>1.0 ) prd /= fabs(prd);
+	// ↑こりゃだめだ。
+
+	// もし、src と tar が完全に反対方向を向いている場合は、回転をさせない。（srcをそのまま返却）
+	// → いや、少し削り、-1.0よりも大きくする
+	// → これやると破綻する。（最後にベクトルと整合が取れなくなるので。）
+	//if (prd == -1.0) prd += 0.0001;
+
+	double angle = acos(prd);
+
+	// これが maxRadiansDelta 以下の場合は、tar を返して終了
+	if (angle <= maxRadiansDelta) return tar;
+
+	/*
+	// 回転軸を計算
+	//Vector3D RotAxis = (tar%src).normalize();
+	Vector3D RotAxis = (src%tar).normalize();
+
+	// 回転軸に、maxRadiansDelta 回転させる回転行列を計算（DXlib組み込みを使用）
+	MATRIX RotMat = MGetRotAxis(RotAxis.toVECTOR(), maxRadiansDelta);
+
+	// src に回転行列を作用させて返却
+	return VTransformSR(src.toVECTOR(), RotMat);
+	*/
+
+	// ２ベクトルの成す角が小さくなると不安定なる問題に対処するため、
+	// アルゴリズムの改善。
+
+	double beta = sin(maxRadiansDelta) / sin(angle);
+	double alpa = cos(maxRadiansDelta) - cos(angle)*beta;
+
+	Vector3D tmp = alpa * src + beta * tar;
+	assert(tmp.len() < 1000.0);
+	return tmp;
+
+	//return alpa * src + beta * tar;
+
+	// このアルゴリズムの導出方法は、できればドキュメントに残したい。
+	// たとえば、githubのwikiとかに...
+
 };

@@ -105,7 +105,8 @@ public:
 	virtual void Render(); // Entityを描画
 	void ChangeState( State* ); // 保持しているStateを更新する
 
-
+	// #### その他 ####
+	static const double m_dConfigScaling; // SuperMario64HDのコンフィグを移植するときのスケーリング変数
 
 	// #### Anmation識別enumを定義 ####
 	enum AnimationID
@@ -118,21 +119,23 @@ public:
 		Jump_PreMotion = 5, // ジャンプ前の"溜め"のモーション
 		Jump_Ascent    = 6, // ジャンプ上昇中
 		Jump_Descent   = 7, // ジャンプ下降中
-		Jump_Landing   = 8,  // ジャンプ後の着地
+		Jump_Landing   = 8, // ジャンプ後の着地
 		Jump_Landing_Short = 9,  // ジャンプ後の着地（センター位置がもっとも下がるところまで。ジャンプ着地→走り出しのアニメーションで使用するため）
-		Breaking = 10,  // ダッシュからの切返し状態の"ブレーキ中"のモーション
-		Turning  = 11,  // ダッシュからの切返し状態の"切返し中"のモーション
+		Breaking = 10,      // ダッシュからの切返し状態の"ブレーキ中"のモーション
 		BreakAndTurn  = 12, // モーション004全体
 		BreakingAfter = 13, // ダッシュからの切返しで、急ブレーキ後に切り返さず立ち状態に戻る時の、ブレーキからの起き上がりモーション
-		TurnFinalFly  = 14, // 切返し動作の最後の飛び出すモーション（暫定的に走りのモーションより切出し）
+		TurnFirst = 11,     // 切返しモーション前半（ブレーキ完了から体の向きを変えるところまで）
+		TurnLatter = 17,    // 切返しモーション後半（前半終了から切返し方向に向かって飛び出す）
+		TurnFull = 18,      // 切返しモーション全体（前半＋後半 i.e.ブレーキ完了以降全て）
+		TurnFixHead = 19,   // 切返し動作を「SuperMario64HD」準拠にするにあたり、ブレーキ→切返し時にキャラクタ向きが180°反転する動作仕様に対応
+		TurnFinalFly = 14,  // 切返し動作の最後の飛び出すモーション　※走りのモーションより切出し
 		// ==== MMDモーションのインポートツール作成のブログ記事作成のためのデモ用 ===
 		DEMO_Turning = 15,      // 切り返し
-		DEMO_RunningRev = 16,   // 走り（全ての親を操作して向きを反転）
-		DEMO_TurnFinalFly = 17  // 切返し動作の最後の飛び出すモーション（暫定的に走りのモーションより切出し）
+		DEMO_RunningRev = 16   // 走り（全ての親を操作して向きを反転）
 
 	};
 
-	static const int m_iAnimIDMax=18;
+	static const int m_iAnimIDMax=20;
 
 	// #### アニメーション固有情報管理クラス
 	// 全てのアニメーション固有情報が格納されたコンテナを管理するためのシングルトン
@@ -172,8 +175,9 @@ public:
 
 	// 設定系
 	void    setTimeElaps( double telaps ){ m_dTimeElapsed=telaps; }
-	void    setVelocity( Vector3D newVel ){ m_vVelocity=newVel; };
-	void    setPos( Vector3D newPos ){ m_vPos=newPos; };
+	void    setVelocity( Vector3D newVel ){ m_vVelocity=newVel; }; // キャラクタ速度を（直接）設定
+	void    setPos( Vector3D newPos ){ m_vPos=newPos; };           // キャラクタ位置を（直接）設定
+	void    setHeading(Vector3D newHead) { m_vHeading = newHead; };// キャラクタ向きを（直接）設定
 
 	// #### タイマー類 ####
 private:
@@ -187,7 +191,7 @@ public:
 	
 	// スティックの傾きの方向からEntityの移動方向を計算する
 	// * 大きさはオリジナルのスティックの傾きの大きさを使用
-	Vector3D calcMovementDirFromStick();
+	Vector3D MoveInput();
 
 private:
 	// スクリーン上の座標（スクリーンローカル座標）をXZ平面に投影した座標を計算する（内部的に ConvScreenPosToWorldPos を使用）

@@ -123,6 +123,61 @@ public:
 
 };
 
+// ブレーキステート（切返し動作）
+class Break : public State
+{
+private:
+	Break() {}
+
+	// コピーコンストラクタ、代入演算子を private に
+	Break(const Break&);
+	Break& operator=(const Break&);
+
+	// #### メンバ ####
+
+public:
+
+	// シングルトン
+	static Break* Instance();
+
+	virtual void Enter(PlayerCharacterEntity*);
+	virtual void StateTranceDetect(PlayerCharacterEntity*);
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation&);
+	virtual void Render(PlayerCharacterEntity*);
+	virtual void Exit(PlayerCharacterEntity*);
+	virtual string getStateName() { return "Break"; };
+};
+
+// 切返しステート（切返し動作）
+class Turn : public State
+{
+private:
+	Turn() {}
+
+	// コピーコンストラクタ、代入演算子を private に
+	Turn(const Turn&);
+	Turn& operator=(const Turn&);
+
+	// #### 動作パラメータ
+	static const double TurnDulation;  // 切返しステートの継続時間
+	static const double TurnSpeed;     // 切返し時の旋回速度
+
+	// #### メンバ ####
+
+public:
+
+	// シングルトン
+	static Turn* Instance();
+
+	virtual void Enter(PlayerCharacterEntity*);
+	virtual void StateTranceDetect(PlayerCharacterEntity*);
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation&);
+	virtual void Render(PlayerCharacterEntity*);
+	virtual void Exit(PlayerCharacterEntity*);
+	virtual string getStateName() { return "Turn"; };
+};
+
+
 
 // #### SurfaceMove ステート ####
 class SurfaceMove : public State

@@ -63,7 +63,7 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_Landing);
 		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing);
 	}
-	else if( pEntity->isMatchPrvState( OneEightyDegreeTurn::Instance() ) )
+	else if( pEntity->isMatchPrvState( Break::Instance() ) )
 	{
 		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreakingAfter);
@@ -324,6 +324,268 @@ void Jump::Exit( PlayerCharacterEntity* pEntity )
 }
 
 
+// #### Break ステートのメソッド ########################################################################
+Break* Break::Instance()
+{
+	static Break instance;
+	return &instance;
+}
+
+void Break::Enter(PlayerCharacterEntity* pEntity)
+{
+	// ブレーキ状態のタイマオン
+	pEntity->StopWatchOn();
+
+	// アニメーションの設定
+	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Breaking, 0.0); // ブレーキのアニメーションを設定
+	
+	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength();
+	
+	//   turnに遷移するタイミングでは、既にブレーキアニメーションの再生が終わっている必要がある。
+	//   ブレーキに入る最低速度（＆ブレーキの減速度）から、ブレーキ継続する最小時間を計算し、それ以下にする必要がある。
+	double BrakingDulation = 0.08;
+	float PlayPitch = (float)(AnimTotalTime/BrakingDulation);
+	
+	pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+}
+
+void Break::StateTranceDetect(PlayerCharacterEntity* pEntity)
+{
+	// 廃棄予定のメソッド
+}
+
+void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar)
+{
+	PhyVar.init(); // 初期化
+
+	// 新しいステートへの遷移、キャラクタの物理量の更新は、
+	// すべてこのメソッドの中でやるようにする。
+
+	// ## キャラクタのUpdate()での物理量の更新処理を回避するための処理
+	// → すべてのステートで、ステート内で物理量を更新するように変更したら、ここの処理は削除すること。。。
+
+	// 速度変化なし
+	PhyVar.UseVelVar = false;
+	PhyVar.Force = Vector3D(0, 0, 0);
+
+	// キャラクタ向きの手動設定を有効
+	PhyVar.UseHeading = true;
+	PhyVar.Heading = pEntity->Heading();
+
+	// 位置はデフォルト更新（現在の速度に従い更新）
+	PhyVar.UsePosVar = false;
+
+	// ##「ブレーキ」ステートの挙動
+
+	// 速度の向きはキャラクタ向きで代用しようかとも思ったが、（どんどん小さくなっていく速度ベクトルよりは安定であるため）
+	// 地平面に傾きがある場合は速度向き＝キャラクタ向きが成り立たない可能性があることに気がついたので、止めた。
+
+	// 速度の大きさを方向を分離
+	double   VelSiz = pEntity->Velocity().len();
+	Vector3D VelDir = pEntity->Velocity() / VelSiz;
+
+	// 速度の大きさを更新
+	double deceleration = 60.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
+	//double deceleration = 10.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
+	double NewVelSiz = MoveTowards(VelSiz, 0, deceleration);
+
+	// 新しい速度ベクトルを再構築
+	Vector3D NewVel = NewVelSiz * VelDir;
+
+	// 更新された速度をEntityにセット
+	pEntity->setVelocity(NewVel);
+
+	// ## 「ブレーキ」ステートのキャンセル判定
+
+	// スティックの入力があること
+	if (!pEntity->MoveInput().isZero())
+	{
+		// スティックの傾き方向とキャラクタ向きの角度を取得
+		double AngleBetween = Angle3D(pEntity->MoveInput(), pEntity->Heading());
+
+		//スティックの傾き方向と(ブレーキ開始時の※)キャラクタ向きとの角が110°より小さくなる
+		if (AngleBetween < DX_PI * (11.0 / 18.0))
+		{
+			//→キャンセルして、「走り／歩き」ステートに遷移。
+			pEntity->ChangeState(SurfaceMove::Instance());
+			return;
+		}
+	}
+
+
+	// ##「ブレーキ」ステートの終了判定
+
+	// キャラクタの速度が０になったら
+	if (pEntity->Velocity().sqlen() == 0.0)
+	{
+		if (pEntity->MoveInput().isZero())
+		{ // スティック入力なし
+		
+			// 「アイドル」（待機）ステートへ遷移
+			pEntity->ChangeState(Standing::Instance());
+			return;
+		}
+		else
+		{ // スティック入力あり
+		
+			// [キャラクタ方向を反転]
+			Vector3D newHead = -1 * pEntity->Heading();
+			pEntity->setHeading(newHead);
+
+			PhyVar.Heading = pEntity->Heading(); // ※ すべてのステートで、ステート内で物理量を更新するように変更したら、ここの処理は削除すること。。。
+
+			//「切返し」ステートへ遷移
+			pEntity->ChangeState(Turn::Instance());
+			return;
+		} 
+	}
+
+}
+
+void Break::Render(PlayerCharacterEntity* pEntity)
+{
+	;
+};
+
+
+void Break::Exit(PlayerCharacterEntity* pEntity)
+{
+	// 遠心力による姿勢の傾きの解除
+	pEntity->m_pAnimMgr->setBankAngle(0.0);
+}
+
+// #### Turn ステートのメソッド ########################################################################
+const double Turn::TurnDulation = 0.4; // 切返しステートの継続時間
+const double Turn::TurnSpeed    = 1.5 * DX_PI;   // 切返し時の旋回速度
+
+Turn* Turn::Instance()
+{
+	static Turn instance;
+	return &instance;
+}
+
+void Turn::Enter(PlayerCharacterEntity* pEntity)
+{
+	// タイマオン
+	pEntity->StopWatchOn();
+
+	// 切返し動作のアニメーションを再生
+	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnFixHead);
+	pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::TurnFinalFly, 0.0); // ブレンドするとモーション破綻する問題あるため
+
+	// TurnDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
+	float AnimTotalTime = 16.0 + 5.0; // TurnFullの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
+	// ↑本来なら、AnimUniqueInfo にアニメーションの長さを取得するメソッドをもたせるべきである。
+	float PlayPitch = (float)(AnimTotalTime / TurnDulation);
+	pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+}
+
+void Turn::StateTranceDetect(PlayerCharacterEntity* pEntity)
+{
+	// 廃棄予定のメソッド
+}
+
+void Turn::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar)
+{
+	PhyVar.init(); // 初期化
+
+	// ## キャラクタのUpdate()での物理量の更新処理を回避するための処理
+	// → すべてのステートで、ステート内で物理量を更新するように変更したら、ここの処理は削除すること。。。
+
+	// 速度変化なし
+	PhyVar.UseVelVar = false;
+	PhyVar.Force = Vector3D(0, 0, 0);
+
+	// キャラクタ向きの手動設定を有効
+	PhyVar.UseHeading = true;
+	PhyVar.Heading = pEntity->Heading();
+
+	// 位置はデフォルト更新（現在の速度に従い更新）
+	PhyVar.UsePosVar = false;
+
+	// ## 「切返し」ステートの挙動
+	if (!(pEntity->MoveInput().isZero()))
+	{ // スティック入力あり
+		
+		assert(pEntity->Heading().y == 0.0);
+
+		double dbg = pEntity->Heading().normalize()*pEntity->MoveInput().normalize();
+		assert(dbg >-1.0);
+
+		// キャラクタ向きの更新
+		double turnSpeed = TurnSpeed * pEntity->TimeElaps();
+		Vector3D newHead = RotateTowards3D(pEntity->Heading().normalize(), pEntity->MoveInput().normalize(), turnSpeed);
+		
+		assert(newHead.y == 0.0);
+
+		// newHead.y > 0 になると動作が破綻するかもしれん、ということで、強制的に0にする処理を入れて様子をみる...
+		if (newHead.y != 0)
+		{
+			newHead.y = 0;
+			newHead = newHead.normalize();
+		}
+
+		// くそ、うまく動かない。
+		// 修正したアルゴリズムがおかしいのか...
+		// RotateTowards3D のなかで、yベクトルの0チェックをするようにしてみるか...
+
+		// とりあえず、これで破綻は発生しないようになった。
+		// RotateTowards3D のアルゴリズム自体を見直したほうがいい。
+		
+		pEntity->setHeading(newHead);
+
+		PhyVar.Heading = pEntity->Heading(); // ※ すべてのステートで、ステート内で物理量を更新するように変更したら、ここの処理は削除すること。。。
+
+		// キャラクタ速度の大きさを計算
+		double SpeedAcceleration = 20.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; 
+		double newSpeed = MoveTowards(pEntity->Velocity().len(), SurfaceMove::MaxVelocity, SpeedAcceleration);
+
+		Vector3D newVel = newSpeed * newHead;
+
+		assert(newVel.len() < 1000.0);
+
+		pEntity->setVelocity(newVel);
+
+	}
+	else
+	{ // スティック入力なし
+
+		// SpeedDeceleration
+		double SpeedDeceleration = 15.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling;
+		double newSpeed = MoveTowards(pEntity->Velocity().len(), 0.0f, SpeedDeceleration);
+
+		Vector3D newVel = newSpeed * pEntity->Heading();
+		pEntity->setVelocity(newVel);
+
+	}
+
+	// ## 「切返し」ステートの終了判定
+	if (pEntity->getStopWatchTime() > TurnDulation)
+	{ // 切返しタイマ満了
+		// 「走り／歩き」ステートに遷移
+		pEntity->ChangeState(SurfaceMove::Instance());
+		return;
+	}
+
+	return;
+}
+
+void Turn::Render(PlayerCharacterEntity* pEntity)
+{
+	;
+};
+
+
+void Turn::Exit(PlayerCharacterEntity* pEntity)
+{
+	// 遠心力による姿勢の傾きの解除
+	pEntity->m_pAnimMgr->setBankAngle(0.0);
+}
+
+
+
 
 // #### SurfaceMove ステートのメソッド ########################################################################
 
@@ -411,7 +673,7 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 
 }
 
-void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
+void SurfaceMove::StateTranceDetect(PlayerCharacterEntity* pEntity)
 {
 	// m_bJmpChrgUsageFlg OFF
 	static const double JmpChrgWaitTime = 0.1; // ジャンプ開始までの待ち時間
@@ -421,21 +683,21 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 
 	// #### ジャンプ関連
-	if( pEntity->m_bJmpChrgUsageFlg )
+	if (pEntity->m_bJmpChrgUsageFlg)
 	{ // m_bJmpChrgUsageFlg ON (ボタンの押し込み時間に応じで、ジャンプ力調整する機能)
-		if( pEntity->m_bJmpChrgFlg )
+		if (pEntity->m_bJmpChrgFlg)
 		{ // ジャンプチャージ中
 			// ButA が離された or ジャンプチャージ の最大時間を超過した
-			if( !pEntity->m_pVirCntrl->ButA.isPushed() 
-				|| pEntity->getStopWatchTime() > JmpChrgMaxTime )
+			if (!pEntity->m_pVirCntrl->ButA.isPushed()
+				|| pEntity->getStopWatchTime() > JmpChrgMaxTime)
 			{
 				// → StateをJumpに更新
 				//（Jump State のEnterの中でタイマ値からジャンプのサイズを計算する）
-				pEntity->ChangeState( Jump::Instance() );
+				pEntity->ChangeState(Jump::Instance());
 			}
 
 		}
-		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
+		else if (pEntity->m_pVirCntrl->ButA.isNowPush())
 		{ // ButA がこの瞬間に押された
 			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
 			pEntity->StopWatchOn();        // タイマーセット
@@ -443,17 +705,17 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	}
 	else
 	{ // m_bJmpChrgUsageFlg OFF
-		if( pEntity->m_bJmpChrgFlg )
+		if (pEntity->m_bJmpChrgFlg)
 		{ // ジャンプチャージ中
 			// ButA が離された or ジャンプチャージ の最大時間を超過した
-			if( pEntity->getStopWatchTime() > JmpChrgWaitTime )
+			if (pEntity->getStopWatchTime() > JmpChrgWaitTime)
 			{
 				// StateをJumpに更新
-				pEntity->ChangeState( Jump::Instance() );
+				pEntity->ChangeState(Jump::Instance());
 			}
 
 		}
-		else if( pEntity->m_pVirCntrl->ButA.isNowPush() )
+		else if (pEntity->m_pVirCntrl->ButA.isNowPush())
 		{ // ButA がこの瞬間に押された
 			pEntity->m_bJmpChrgFlg = true; // JmpChrgFlgを上げる
 			pEntity->StopWatchOn();        // タイマーセット
@@ -469,24 +731,49 @@ void SurfaceMove::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 	// #### ダッシュからの切返しの遷移判定
 
+
+
+	/*
 	// 速度ベクトル（規格化済み）と移動方向ベクトルの内積値がこの値以下であれば、切返しと判定する。
 	//static const double InnerProductForStartTurn = 0.0;
-	static const double InnerProductForStartTurn = -cos( DX_PI_F/6.0 ); 
-	
+	static const double InnerProductForStartTurn = -cos( DX_PI_F/6.0 );
+
 	//if( pEntity->m_eMoveLevel == PlayerCharacterEntity::MvLvRunning )
 	if( pEntity->Velocity().sqlen() >= ThresholdSpeedRunToWark )
 	{ // 移動レベルが、Runningならば
 		Vector3D VelDir  = pEntity->Velocity().normalize();
-		Vector3D MoveDir = pEntity->calcMovementDirFromStick().normalize();
-		Vector3D EstiDir = (pEntity->calcMovementDirFromStick()-VelDir).normalize();
+		Vector3D MoveDir = pEntity->MoveInput().normalize();
+		Vector3D EstiDir = (pEntity->MoveInput()-VelDir).normalize();
 		//if( VelDir*MoveDir <= InnerProductForStartTurn )
 		if( MoveDir*VelDir<=0 && EstiDir*VelDir<=InnerProductForStartTurn )
 		{
-			pEntity->ChangeState( OneEightyDegreeTurn::Instance() );
+			pEntity->ChangeState( Break::Instance() );
 			return ;
 		}
 	}
+	*/
 
+	// 切返し動作をSuperMario64HD準拠化実験
+
+	if (pEntity->Velocity().sqlen() >= ThresholdSpeedRunToWark)
+	{
+		// ホントは速度条件が違うが、とりあえず
+		if(pEntity->MoveInput().isZero())
+		{ 
+			pEntity->ChangeState(Break::Instance());
+			return;
+		}
+
+		// スティックの傾き方向とキャラクタ向きの角度を取得
+		double AngleBetween = Angle3D(pEntity->MoveInput(), pEntity->Heading());
+
+		//スティックの傾き方向と(ブレーキ開始時の※)キャラクタ向きとの角が110°より小さくなる
+		if (AngleBetween >= DX_PI * (11.0f / 18.0f))
+		{
+			pEntity->ChangeState(Break::Instance());
+			return;
+		}
+	}
 
 	// #### Standingへ遷移 その他 MoveLeve制御
 	static const double ThresholdSpeedForStop   = 5.0*5.0;   // Standing に遷移する速度の閾値（平方値）
@@ -557,7 +844,7 @@ void SurfaceMove::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVar
 	PhyVar.init(); // 初期化
 
 	// スティックの傾きの方向からEntityの移動方向を計算する
-	Vector3D vStickTiltFromCam = pEntity->calcMovementDirFromStick();
+	Vector3D vStickTiltFromCam = pEntity->MoveInput();
 
 	// * スティックの傾き（=Input）から、終速度を計算
 	Vector3D TerminalVel = MaxVelocity * vStickTiltFromCam;
@@ -913,7 +1200,7 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 		// スティックの傾き方向が（切返し開始時の）速度方向に倒されたら（戻されたら）、 
 		// 切返しをキャンセルして走りの状態に戻る。
-		Vector3D MoveDir = pEntity->calcMovementDirFromStick().normalize();
+		Vector3D MoveDir = pEntity->MoveInput().normalize();
 		if( m_vVelDirBeginning*MoveDir > InnerProductForStartTurn )
 		{
 			pEntity->ChangeState( SurfaceMove::Instance() );
@@ -949,7 +1236,7 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			}
 
 			// 切出し動作で"発射"する方として、切出し動作開始した時のスティックの向き（規格化）に設定
-			m_vTurnDestination = pEntity->calcMovementDirFromStick().normalize();
+			m_vTurnDestination = pEntity->MoveInput().normalize();
 
 			// 継続時間を時間記録
 			DBG_m_SubStateDurations[SUB_BREAK_PRE] = pEntity->getStopWatchTime();
@@ -999,7 +1286,7 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			m_vVelEnterTurning = pEntity->Velocity();
 
 			// 切返し動作のアニメーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turning );
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnFirst );
 
 			// TurningDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
 			float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
@@ -1026,12 +1313,12 @@ void OneEightyDegreeTurn::StateTranceDetect( PlayerCharacterEntity* pEntity )
 			pEntity->StopWatchOn();
 
 			// 切返ししながら飛び出すアニメーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::DEMO_TurnFinalFly );
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnLatter );
 			pEntity->m_pAnimMgr->ReserveAnim( PlayerCharacterEntity::TurnFinalFly, 2.0 );
 
 			// TurnFlyDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
 			//float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); 
-			float AnimTotalTime = 9.0 + 5.0 ; // DEMO_TurnFinalFlyの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
+			float AnimTotalTime = 9.0 + 5.0 ; // TurnLatterの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
 			float PlayPitch = (float)(AnimTotalTime/TurnFlyDulation) ;
 			pEntity->m_pAnimMgr->setPitch(PlayPitch);
 
