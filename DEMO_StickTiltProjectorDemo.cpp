@@ -1,10 +1,12 @@
 #include <cassert>
 
+#include "MyUtilities.h"
 #include "DEMO_StickTiltProjectorDemo.h"
 
 int GlobalLineColor = GetColor( 0, 0, 0 );
 
-
+// ↓使ってなくて紛らわしいので削除。
+/*
 // 与えられた位置に、座標軸（ワールド座標）を表示する関数
 void DrawCoordi( Vector3D TargetPosVec, double scale )
 {
@@ -18,20 +20,7 @@ void DrawCoordi( Vector3D TargetPosVec, double scale )
 	DrawLine3D( TargetPosVec.toVECTOR(), (TargetPosVec+scale*vUnitZ).toVECTOR(), GetColor( 0, 0, 255 )); // z軸を青線で描画
 
 };
-
-// 与えられた位置に、（ワールド座標からみ）たローカル座標の基底軸を表示する関数
-void DrawCoordi(  MATRIX M, double scale )
-{
-	Vector3D vUnitX(M.m[0][0], M.m[0][1], M.m[0][2]);
-	Vector3D vUnitY(M.m[1][0], M.m[1][1], M.m[1][2]);
-	Vector3D vUnitZ(M.m[2][0], M.m[2][1], M.m[2][2]);
-	Vector3D vTgtPs(M.m[3][0], M.m[3][1], M.m[3][2]);
-
-	// ターゲットposを描画する
-	DrawLine3D( vTgtPs.toVECTOR(), (vTgtPs+scale*vUnitX).toVECTOR(), GetColor( 255, 0, 0 )); // x軸を赤線で描画
-	DrawLine3D( vTgtPs.toVECTOR(), (vTgtPs+scale*vUnitY).toVECTOR(), GetColor( 0, 255, 0 )); // y軸を緑線で描画
-	DrawLine3D( vTgtPs.toVECTOR(), (vTgtPs+scale*vUnitZ).toVECTOR(), GetColor( 0, 0, 255 )); // z軸を青線で描画
-};
+*/
 
 // ########################## SectorFigure2D ##########################
 

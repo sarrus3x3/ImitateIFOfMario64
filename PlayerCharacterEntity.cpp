@@ -139,7 +139,6 @@ void PlayerCharacterEntity::Update(double time_elapsed)
 void PlayerCharacterEntity::Render()
 {
 	m_pCurrentState->Render(this);
-	
 	m_pAnimMgr->Play(this);
 };
 

@@ -47,3 +47,43 @@ void DrawArrow2D( Vector2D bgn, Vector2D end, unsigned int Color, int FillFlag, 
 	}
 
 };
+// 与えられた位置に、（ワールド座標からみ）たローカル座標の基底軸を表示する関数
+void DrawCoordi(MATRIX M, double scale)
+{
+	Vector3D vUnitX(M.m[0][0], M.m[0][1], M.m[0][2]);
+	Vector3D vUnitY(M.m[1][0], M.m[1][1], M.m[1][2]);
+	Vector3D vUnitZ(M.m[2][0], M.m[2][1], M.m[2][2]);
+	Vector3D vTgtPs(M.m[3][0], M.m[3][1], M.m[3][2]);
+
+	// ターゲットposを描画する
+	DrawLine3D(vTgtPs.toVECTOR(), (vTgtPs + scale*vUnitX).toVECTOR(), ColorPalette::Red  ); // x軸を赤線で描画
+	DrawLine3D(vTgtPs.toVECTOR(), (vTgtPs + scale*vUnitY).toVECTOR(), ColorPalette::Green); // y軸を緑線で描画
+	DrawLine3D(vTgtPs.toVECTOR(), (vTgtPs + scale*vUnitZ).toVECTOR(), ColorPalette::Blue ); // z軸を青線で描画
+};
+
+// ###############################################
+// ########## class VisualFootprint
+// ###############################################
+
+// 軌跡を記録
+void VisualFootprint::Update(Vector3D Pos)
+{
+	CurIndex = ++CurIndex%TrajectoryList.size();
+	TrajectoryList[CurIndex] = Pos;
+};
+
+// 軌跡を描画
+void VisualFootprint::Render()
+{
+	// 軌跡を描画
+	for (int i = 1; i<TrajectoryList.size(); i++)
+	{
+		int s = (CurIndex + i) % TrajectoryList.size();
+		int e = (CurIndex + i + 1) % TrajectoryList.size();
+		DrawLine3D(
+			TrajectoryList[s].toVECTOR(),
+			TrajectoryList[e].toVECTOR(),
+			m_iColor);
+	}
+
+};

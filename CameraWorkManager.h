@@ -118,7 +118,7 @@ public:
 	void saveViewMatrix(){ saveViewMatrix( m_MViewWorld ); }; // 引数なしで現在のビュー行列（m_MViewWorld）を保存する。
 
 	// カメラのビュー行列を外部ファイルから変数に読み込む
-	void loadViewMatrix();
+	int loadViewMatrix();
 
 
 };

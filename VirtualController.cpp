@@ -466,6 +466,9 @@ void VirtualController::RenderStickTrajectory::Render( Vector2D CurStickPos, Vec
 		GetColor( 255, 255, 255 ), FALSE );
 
 	// 軌跡を描画
+	// このロジックバグってるな。。。
+	// ・始まりが CurIndex からになってない
+	// ・閉路を書いている
 	for( int i=0; i<TrajectoryList.size()-1; i++ )
 	{
 		int s = (i)%TrajectoryList.size();
@@ -544,7 +547,7 @@ void VirtualController::UpdateAutoControl(double TimeElaps)
 
 	// 時間配分の配列（累積値）
 	//static double   TimeAlloc[4 + 1] = { 0.0,0.5,5.0,0.5,5.0 };
-	static double   TimeAlloc[4 + 1] = {0.0,0.5,5.5,5.7,8.0};
+	static double   TimeAlloc[4 + 1] = {0.0,0.5,5.5,5.501,8.0};
 
 	Vector2D StickPos;
 	for (int i=0; i<TotalSections; i++)

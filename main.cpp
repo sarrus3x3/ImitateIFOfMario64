@@ -30,7 +30,7 @@
 // ########### 制御用 defin ###########
 
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
-#define GROUND_MESH_ON  // 地面の方眼模様あり
+//#define GROUND_MESH_ON  // 地面の方眼模様あり
 //#define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
 //#define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
 //#define ITEM_GETTING // アイテム収集演出
@@ -257,7 +257,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 #endif
 
 	// キャラクタローカル座標モデル描画テスト
-	CoordinateAxisModel CharCordiModelTest( 0.5, 20, 20, 20 );
+	//CoordinateAxisModel CharCordiModelTest( 0.5, 20, 20, 20 );
+
+	// 足跡描画機能のインスタンス生成
+	VisualFootprint Footprint(120, GetColor(255, 255, 255));
 
 	// ライト関係パラメータ
 	Vector3D LightPos;
@@ -269,8 +272,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     float Atten1 = 0.0f ;
     float Atten2 = 0.0001f ;
 
-
-
 #ifdef FARFAR_AWAY
 	int Sx , Sy , Cb ;
     GetScreenState( &Sx , &Sy , &Cb ) ;
@@ -280,6 +281,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// ################## メインループの開始 #######################
 	while(!ScreenFlip() && !ProcessMessage() && !ClearDrawScreen()){
 		//ココに処理を書いていく
+
+		// これなくても動くか。
+		//SetupCamera_Perspective(DX_PI_F / 3); // 遠近法に戻す
+
 
 		// タイムスライスを取得
 		double timeelaps = timer.TimeElapsed();
@@ -295,6 +300,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		{
 			CurCameraMode = (CurCameraMode+1)%CameraWorkManager::m_iCameraModeMax;
 			CameraWorkManager::Instance()->setCameraMode( (CameraWorkManager::CameraModeID)CurCameraMode );
+
 		}
 
 		//MV1SetRotationXYZ( ModelHandle, VGet( angleX, angleY, 0.0f ) ) ;
@@ -317,11 +323,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		{
 			// 自動操作モードオン／オフ
 			VController.AutoControlOnOff();
-
-			/*
-			PCEnti.m_pAnimMgr->ExpBoneOfPhysicsPart( !PCEnti.m_pAnimMgr->getCurBoneExpress() );
-			MV1PhysicsResetState( PCEnti.m_pAnimMgr->DBG_getModelHandle() ); // 物理演算状態をリセット（これで発散するのが回避できる？）→ 上手くいかない
-			*/
 		}
 
 		// アニメーション物理演算のタイムステップを制御する
@@ -448,7 +449,12 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// ######### みせかけだけアイテム回収機能の実験 #########
 		GameWorldIns.Render();
 #endif
-		// キャラクタローカル座標モデル描画テスト
+		
+		// ### 足跡描画
+		Footprint.Update(PCEnti.Pos()); // 軌跡リスト更新
+		Footprint.Render();
+
+		// ### キャラクタローカル座標モデル描画テスト
 
 		// キャラクタローカル座標に合わせて描画するようにする
 		MATRIX Mtns = MGetAxis1(	// キャラクタの姿勢から [ Head, Upper, Side ]
@@ -458,17 +464,24 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 			PCEnti.Pos().toVECTOR()
 			); 
 
-		// ★はい！なんかおかしいね！→もう寝なさい！
+		//CharCordiModelTest.setMatrix(Mtns);
+		//CharCordiModelTest.Render();
 
-		CharCordiModelTest.setMatrix(Mtns);
-		CharCordiModelTest.Render();
+		// ローカル座標描画を簡易表示にする
+		DrawCoordi(Mtns, 20.0);
+
+		// ######### カメラを正射影にする場合
+		// SetupCamera_Ortho(25); //正射影をセット
+		// Vector3D vCamPos(0, 30, -321.784);
+		// Vector3D vLowY(0.0, -100, 0.0001); // 完全に0にするとバグる。
+		// SetCameraPositionAndTarget_UpVecY(vCamPos.toVECTOR(), (vCamPos + vLowY).toVECTOR());
 
 		// ################## コントローラーを描画 #######################
 		//VController.Render( Vector2D(25,25) );
 
 		// ################## デバック情報を出力 #######################
 		//行数
-		int colmun= 10;
+		int colmun = 10;
 		int width = 15;
 
 		// m_FrameTimeHistoryを更新
@@ -491,10 +504,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		DrawFormatString( 0, width*colmun, 0xffffff, "StateName:%s", PCEnti.DBG_getCurrentStateName().c_str() ); 
 		colmun++;
 
-
 		// アナログスティック状態とEntityの向きを描画
 		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 100 ) );
 
+		/*
 		// 現在のアニメーションの再生時間を出力
 		DrawFormatString( 0, width*colmun, 0xffffff, "Current Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
 		colmun++;
@@ -505,6 +518,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		DrawFormatString(0, width*colmun, 0xffffff, "Previous Anim Name:%s", PCEnti.m_pAnimMgr->getPrvAnimName().c_str());
 		colmun++;
+
+
+		DrawFormatString(0, width*colmun, 0xffffff, "Pos :%4f, %4f, %4f", PCEnti.Pos().x, PCEnti.Pos().y, PCEnti.Pos().z);
+		colmun++;
+		*/
 
 		/*
 		// キャラクタのローカル座標情報を出力

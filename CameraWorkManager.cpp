@@ -11,7 +11,7 @@ static const float ROTATE_SPEED = DX_PI_F/90;  //回転スピード
 // コンストラクタ
 CameraWorkManager::CameraWorkManager() :
 	m_CurCamMode(RotateCamOnGazePoint),
-	m_dTilt(0),
+	m_dTilt(DX_PI*0.5),
 	m_dHead(0),
 	m_dCamDistFrmFP(100.0),
 	m_dCamHight(30.0),
@@ -293,14 +293,17 @@ void CameraWorkManager::saveViewMatrix( MATRIX mViewMat )
 };
 
 // カメラのビュー行列を外部ファイルから変数に読み込む
-void CameraWorkManager::loadViewMatrix()
+// 戻り値：
+//   0 - 成功
+//   1 - 失敗
+int CameraWorkManager::loadViewMatrix()
 {
 	//ファイルの読み込み
 	ifstream ifs("CameraWorkManager-SaveViewMatrix.txt");
 	if(!ifs)
 	{
 		// ファイル読込に失敗（あるいはファイルそのものがなければ）スルー
-		return ;
+		return 1;
 	}
 
 	for( int i=0; i<4; i++)
@@ -318,5 +321,6 @@ void CameraWorkManager::loadViewMatrix()
 		}
 	}
 
+	return 0;
 };
 

@@ -90,6 +90,28 @@ public:
   }
 };
 
+// ################## 足跡表示機能 ##################
+class VisualFootprint
+{
+public:
+	// 軌跡格納
+	std::vector<Vector3D> TrajectoryList;
+	int CurIndex; // TrajectoryListにおける現在のindex
+	unsigned int m_iColor; // 軌跡を描画する色
+
+	// コンストラクタ
+	// 軌跡を残すステップ数と、軌跡を描画する色を指定
+	VisualFootprint(int MaxQueue, unsigned int Color ) 
+		: TrajectoryList(MaxQueue), CurIndex(0), m_iColor(Color) {};
+
+	// 軌跡を記録
+	void Update(Vector3D Pos);
+
+	// 軌跡を描画
+	void Render();
+
+};
+
 // ################## 描画のための補助関数 #######################
 
 inline int DrawLine2D( Point2D bgn, Point2D end, unsigned int Color, int Thickness=1 )
@@ -119,6 +141,9 @@ inline int DrawTriangle2D( Point2D V1, Point2D V2, Point2D V3, unsigned int Colo
 
 // 矢印 - 先端が線のタイプ
 void DrawArrow2D( Vector2D bgn, Vector2D end, unsigned int Color, int FillFlag = FALSE, int Thickness=1 );
+
+// 与えられた位置に、（ワールド座標からみ）たローカル座標の基底軸を表示する関数
+void DrawCoordi(MATRIX M, double scale);
 
 // 色を決める時にいちいちGetColor関数でRGB指定するストレスから開放するため
 class ColorPalette
