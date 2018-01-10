@@ -9,7 +9,9 @@
 #include <cassert>
 
 // ## 静的メンバの定義
-const double PlayerCharacterEntity::m_dConfigScaling = 9.0; // SuperMario64HDのコンフィグを移植するときのスケーリング変数
+//const double PlayerCharacterEntity::m_dConfigScaling = 9.0; // SuperMario64HDのコンフィグを移植するときのスケーリング変数
+// 2018/01/07 チューニング。
+const double PlayerCharacterEntity::m_dConfigScaling = 12.0; // SuperMario64HDのコンフィグを移植するときのスケーリング変数
 
 // ここで定義して、別のソースファイルから読み込めるんだろうか？
 
@@ -572,23 +574,65 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimStartTime      = 20.0f;
 	pAnimUnq->m_fAnimEndTime        = 25.0f; 
 
-	// =========================================================
-	// 2017/03/20
-	// MMDモーションのインポートツール作成のブログ記事作成のためのデモ用
-
-	// --------- DEMO_Turning --------- 
-	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_Turning];
+	// --------- BreaktoTurn --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreaktoTurn];
 	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "DEMO_Turning"; 
-	pAnimUnq->m_CurAttachedMotion = 5;
-	pAnimUnq->m_bRepeatAnimation  = false;
+	pAnimUnq->m_sAnimName = "BreaktoTurn";
+	pAnimUnq->m_CurAttachedMotion = 10;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 1.0f;
+	pAnimUnq->m_fAnimEndTime = 5.0f;
 
-	// --------- DEMO_RunningRev --------- 
-	pAnimUnq = &m_pAnimUniqueInfoContainer[DEMO_RunningRev];
+	// --------- Turn --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Turn];
 	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "DEMO_RunningRev"; 
-	pAnimUnq->m_CurAttachedMotion = 7;
-	pAnimUnq->m_bRepeatAnimation  = false;
+	pAnimUnq->m_sAnimName = "Turn";
+	pAnimUnq->m_CurAttachedMotion = 11;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 5.0f;
+	pAnimUnq->m_fAnimEndTime = 10.0f;
+
+	// --------- BreaktoStop --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreaktoStop];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreaktoStop";
+	pAnimUnq->m_CurAttachedMotion = 12;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 2.0f;
+	pAnimUnq->m_fAnimEndTime = 8.0f;
+
+	// --------- BreakAfter --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAfter];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreakAfter";
+	pAnimUnq->m_CurAttachedMotion = 12;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 15.0f;
+	pAnimUnq->m_fAnimEndTime = 23.0f;
+
+	// --------- Standing2 --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Standing2];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Standing2";
+	pAnimUnq->m_CurAttachedMotion = 12;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 23.0f;
+	pAnimUnq->m_fAnimEndTime = 23.0f;
+
+	// --------- Running2 --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Running2];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Running2";
+	pAnimUnq->m_CurAttachedMotion = 13;
+	pAnimUnq->m_bRepeatAnimation = true;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 0.0f;
+	pAnimUnq->m_fAnimEndTime = 14.0f;
 
 
 

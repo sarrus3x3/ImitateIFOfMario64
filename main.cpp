@@ -32,8 +32,8 @@
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
 //#define GROUND_MESH_ON  // 地面の方眼模様あり
 //#define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
-//#define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
-//#define ITEM_GETTING // アイテム収集演出
+#define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
+#define ITEM_GETTING // アイテム収集演出
 
 
 // ####################################

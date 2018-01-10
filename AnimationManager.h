@@ -193,7 +193,7 @@ public:
 	// ----- アニメーションのセット（各Entity Classで定義されるアニメーション固有enumを指定）
 	// ブレンド指定する場合は、引数に、ブレンド時間（デフォルト0）、現在のアニメーションの停止要否（デフォルト要）を設定
 	// AnimSwitchTime 以降を指定しないとブレンドなしで切替する。
-	// StopPrvAnim ON にすると、位相を保ってアニメーション切替行う。ただし、Running<->Walkingにしか対応してない
+	// SyncToPrv ON にすると、位相を保ってアニメーション切替行う。ただし、Running<->Walkingにしか対応してない
 	void setAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true, bool SyncToPrv=false ); 
 
 	// ----- 標準以外の開始時間でアニメーションのセット
@@ -211,6 +211,9 @@ public:
 	// 再生予約されたアニメーションを破棄する = キューを空にする
 	// http://qiita.com/D-3/items/9930591bb78df544c066
 	void DiscardReservedAnim(){ queue<ArgumentOfSetAnim>().swap(m_qAnimReservationQueue); };
+
+	// ----- m_pCurAnimPlayInfoのAnimationIDを取得
+	PlayerCharacterEntity::AnimationID getCurAnimID() { return m_pCurAnimPlayInfo->m_eAnimID; };
 
 	// ----- m_pCurAnimPlayInfoのアニメーション名を取得
 	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };

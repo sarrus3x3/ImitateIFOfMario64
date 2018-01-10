@@ -574,25 +574,13 @@ void TextureSphere3D::setCenterPos( Vector3D CntPos )
 
 void TextureSphere3D::rotEuler( double angX, double angZ, double angY )
 {
+	// 2018/01/09 コンパイルエラー（未初期化変数の使用）になるため、ロジック修正。
 	// オイラー角で回転行列を計算
 	bool inited = false;
-	MATRIX RotMut;
-	if( angY!=0 )
-	{
-		if( inited ) RotMut = MMult( MGetRotY( (float)angY ), RotMut );
-		else RotMut = MGetRotY( (float)angY ), inited = true;
-	}
-	if( angZ!=0 )
-	{
-		if( inited ) RotMut = MMult( MGetRotZ( (float)angZ ), RotMut );
-		else RotMut = MGetRotZ( (float)angZ ),  inited = true;
-	}
-	if( angX!=0 )
-	{
-		if( inited ) RotMut = MMult( MGetRotX( (float)angX ), RotMut );
-		else RotMut = MGetRotX( (float)angX ),  inited = true;
-	}
-	if( !inited ) RotMut = MGetIdent();
+	MATRIX RotMut = MGetIdent();
+	if( angY!=0 ) RotMut = MMult( MGetRotY( (float)angY ), RotMut );
+	if( angZ!=0 ) RotMut = MMult( MGetRotZ( (float)angZ ), RotMut );
+	if( angX!=0 ) RotMut = MMult( MGetRotX( (float)angX ), RotMut );
 
 	// 回転行列を作用
 	int VectexNum = m_iPolygonNum * 3;

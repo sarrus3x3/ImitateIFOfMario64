@@ -192,3 +192,19 @@ inline double MoveTowards( double src, double tar, double maxDelta )
 	}
 
 };
+
+// SuperMario64HD‚Ì SuperMath.BoundedInterpolation ‚É‘Š“–
+// ƒIƒŠƒWƒiƒ‹
+// SuperMario64HD - Unity Project\SuperMario64HD\Assets\SuperCharacterController\Core\SuperMath.cs
+inline double BoundedInterpolation( vector<double> bounds, vector<double> values, double t )
+{
+	for (int i = 0; i < bounds.size(); i++)
+	{
+		if (t < bounds[i])
+		{
+			return values[i];
+		}
+	}
+
+	return values[values.size()-1];
+};

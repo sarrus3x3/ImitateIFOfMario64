@@ -87,7 +87,8 @@ void Standing::StateTranceDetect( PlayerCharacterEntity* pEntity )
 	if( pEntity->m_pVirCntrl->m_dStickL_len > 0 )
 	{
 		// pEntity->ChangeState( Running::Instance() );
-		pEntity->ChangeState( SurfaceMove::Instance() );
+		//pEntity->ChangeState(SurfaceMove::Instance());
+		pEntity->ChangeState( Run::Instance() );
 	}
 
 	// m_bJmpChrgUsageFlg OFF
@@ -236,7 +237,8 @@ void Jump::StateTranceDetect( PlayerCharacterEntity* pEntity )
 		if( pEntity->m_pVirCntrl->Virti > 0 )
 		{
 			// State 変更
-			pEntity->ChangeState( SurfaceMove::Instance() );
+			//pEntity->ChangeState(SurfaceMove::Instance());
+			pEntity->ChangeState( Run::Instance() );
 			return;
 		}
 		else
@@ -347,7 +349,6 @@ void Break::Enter(PlayerCharacterEntity* pEntity)
 	float PlayPitch = (float)(AnimTotalTime/BrakingDulation);
 	
 	pEntity->m_pAnimMgr->setPitch(PlayPitch);
-
 }
 
 void Break::StateTranceDetect(PlayerCharacterEntity* pEntity)
@@ -408,7 +409,8 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 		if (AngleBetween < DX_PI * (11.0 / 18.0))
 		{
 			//→キャンセルして、「走り／歩き」ステートに遷移。
-			pEntity->ChangeState(SurfaceMove::Instance());
+			//pEntity->ChangeState(SurfaceMove::Instance());
+			pEntity->ChangeState(Run::Instance());
 			return;
 		}
 	}
@@ -457,7 +459,9 @@ void Break::Exit(PlayerCharacterEntity* pEntity)
 
 // #### Turn ステートのメソッド ########################################################################
 const double Turn::TurnDulation = 0.4; // 切返しステートの継続時間
-const double Turn::TurnSpeed    = 1.5 * DX_PI;   // 切返し時の旋回速度
+//const double Turn::TurnSpeed = 1.5 * DX_PI;   // 切返し時の旋回速度
+// 2018/01/07 チューニング中
+const double Turn::TurnSpeed    = 4.0 * DX_PI;   // 切返し時の旋回速度
 
 Turn* Turn::Instance()
 {
@@ -540,7 +544,7 @@ void Turn::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& 
 
 		// キャラクタ速度の大きさを計算
 		double SpeedAcceleration = 20.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; 
-		double newSpeed = MoveTowards(pEntity->Velocity().len(), SurfaceMove::MaxVelocity, SpeedAcceleration);
+		double newSpeed = MoveTowards(pEntity->Velocity().len(), Run::runSpeed, SpeedAcceleration);
 
 		Vector3D newVel = newSpeed * newHead;
 
@@ -565,7 +569,8 @@ void Turn::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& 
 	if (pEntity->getStopWatchTime() > TurnDulation)
 	{ // 切返しタイマ満了
 		// 「走り／歩き」ステートに遷移
-		pEntity->ChangeState(SurfaceMove::Instance());
+		//pEntity->ChangeState(SurfaceMove::Instance());
+		pEntity->ChangeState(Run::Instance());
 		return;
 	}
 
@@ -618,7 +623,7 @@ SurfaceMove* SurfaceMove::Instance()
 
 void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 {
-		// アニメーションを設定
+	// アニメーションを設定
 	if( pEntity->isMatchPrvState( Jump::Instance() ) )
 	{
 		// ジャンプ後であれば、着地のアニメーションを再生する
@@ -1585,3 +1590,193 @@ void OneEightyDegreeTurn::DBG_expSubStateDurations( int &c )
 
 };
 
+
+// #### Run ステートのメソッド ########################################################################
+const double Run::runSpeed = 7.0 * PlayerCharacterEntity::m_dConfigScaling;  // 走りの最高速度（スティックを最大限に倒したときにｷｬﾗｸﾀが出せる最高速度）
+//const double Run::runSpeed = 7.0 * 9.0;  // 走りの最高速度（スティックを最大限に倒したときにｷｬﾗｸﾀが出せる最高速度）
+// ↑おそらくこれが原因だが。どうするか。
+
+Run* Run::Instance()
+{
+	static Run instance;
+	return &instance;
+}
+
+void Run::Enter(PlayerCharacterEntity* pEntity)
+{
+	// アニメーションの設定。
+	// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
+	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0);
+
+}
+
+void Run::StateTranceDetect(PlayerCharacterEntity* pEntity)
+{
+	// 廃棄予定のメソッド
+}
+
+void Run::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar)
+{
+	PhyVar.init(); // 初期化
+
+	// ## キャラクタのUpdate()での物理量の更新処理を回避するための処理
+
+	// キャラクタのUpdate()内で速度の更新処理を行わないようにする。（→State内でsetVelocityで設定する）
+	PhyVar.UseVelVar = false;
+	PhyVar.Force = Vector3D(0, 0, 0);
+
+	// キャラクタ向きは PhyVar.Heading の値を設定する。
+	PhyVar.UseHeading = true;
+	PhyVar.Heading = pEntity->Heading(); // ここでも設定しておかないと、途中で、状態遷移したときに、headingﾍﾞｸﾄﾙが消失する。
+
+	// 位置はデフォルト更新（現在の速度に従い更新）
+	PhyVar.UsePosVar = false;
+	
+	// 速度ﾍﾞｸﾄﾙを大きさと方向を分離
+	double   VelSiz = pEntity->Velocity().len();
+	// Vector3D VelDir = pEntity->Velocity() / VelSiz; <-これ、つかってねーな。
+ 
+	if (!(pEntity->MoveInput().isZero()))
+	{ // スティック入力あり
+
+		// スティックからの入力方向が、キャラクタの向きと反対方向を向いていた場合。
+		// 厳密にはには スティックからの入力方向 と キャラクタの向き の角度が、110°よりも大きかった場合。
+		static double ThresholdAngle = DX_PI * (11.0f / 18.0f); // π × 110/180 ラジアン = 110°
+		if (Angle3D(pEntity->MoveInput(), pEntity->Heading()) > ThresholdAngle)
+		{
+			// キャラクタの移動速度が、一定値以上の場合は急ブレーキ状態に遷移してreturn。
+			if (VelSiz > runSpeed * 0.56)
+			{
+				pEntity->ChangeState(Break::Instance());
+				return;
+			}
+
+			// もし、キャラクタ移動速度が、0の場合は、キャラクタの向きをスティックの入力方向へセットする。
+			else if(VelSiz == 0)
+			{
+				pEntity->setHeading(pEntity->MoveInput().normalize());
+			}
+		}
+
+		// ## 走り動作によるキャラクタの物理パラメータの更新を実施
+
+		// キャラクタ向きを、スティックの入力方向へ回転させる。（回転速度：turnSpeedで）
+		double turnSpeed = Turn::TurnSpeed * pEntity->TimeElaps();
+		Vector3D newHead = RotateTowards3D(pEntity->Heading().normalize(), pEntity->MoveInput().normalize(), turnSpeed);
+		assert(newHead.y == 0.0); // 正常性chk
+		pEntity->setHeading(newHead);
+
+		// # キャラクタ速度の大きさの更新
+
+		// BoundedInterpolationに入力する、現在速度→加速度の導出関数の配列の定義
+		static vector<double> Bounds{ 1.3, 3.0, 6.0 }; // C++11風の初期化方法。このやり方使えるのか？
+		static vector<double> Values{ 16.0, 12.0, 8.0, 6.0 };
+		
+		// 加速度（or減速度）の計算
+		double targetSpeed = runSpeed * pEntity->MoveInput().len();
+		double acceration = targetSpeed >= VelSiz ? BoundedInterpolation(Bounds, Values, VelSiz / PlayerCharacterEntity::m_dConfigScaling) : 16.0; // ★VelSizをスケーリングしないと、思うように動かないよ。
+		//double acceration = targetSpeed >= VelSiz ? BoundedInterpolation(Bounds, Values, VelSiz ) : 16.0 ; // ★VelSizをスケーリングしないと、思うように動かないよ。
+		acceration *= PlayerCharacterEntity::m_dConfigScaling; // SM64HDの世界からのスケーリング
+
+		// 接地している地表に、「再マッピング」している。
+		// → 現状では平面状しか動かないので、今はオミットする。
+
+		// 速度の更新
+		double NewVelSiz = MoveTowards(VelSiz, targetSpeed, acceration*pEntity->TimeElaps());
+		pEntity->setVelocity(NewVelSiz*newHead);
+
+	}
+	else
+	{ // スティックからの入力が0の場合。
+		if (VelSiz > runSpeed * 0.66)
+		{
+			// 移動速度が一定速度以上であれば、急ブレーキState(StopState)に遷移してreturn。
+			// - その時のしきい値は、スティックの入力が有りのとき(0.56f)と0の時(0.66f)で差分が有ることに注意。
+			pEntity->ChangeState(Break::Instance());
+			return;
+		}
+		else
+		{
+			// そうでない場合は待機状態に遷移してreturn。
+			// 移動速度が完全に0になっていなくても、待機状態に遷移するため、待機状態の動作で、減速処理があると言うことか？
+			pEntity->ChangeState(Standing::Instance());
+			return;
+		}
+
+	}
+
+	// 物理量を、キャラクタのUpdate()内で正しく更新させるための処理。
+	PhyVar.Heading = pEntity->Heading(); // ※ すべてのステートで、ステート内で物理量を更新するように変更したら、ここの処理は削除すること。。。
+
+	// アニメーション関係の処理はそのまま移植。
+
+	// ## 「歩き」or「走り」のアニメーションの設定
+
+	if (pEntity->m_pVirCntrl->m_dStickL_len > 0.5)
+	{ // スティックの入力の大きさが 0.5 より大きければ、
+		
+		// 「走り」のアニメーションが再生されていなければ、再生する。
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Running)
+		{
+			pEntity->m_pAnimMgr->setAnim(
+				PlayerCharacterEntity::Running,
+				8.0,
+				false,
+				true); // 位相を保ちながら切り替え（ブレンド）
+		}
+
+	}
+	else
+	{ // スティックの入力の大きさが 0.5 より小さければ、
+		//「歩き」のアニメーションが再生されていなければ、再生する。
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Walking)
+		{
+			pEntity->m_pAnimMgr->setAnim(
+				PlayerCharacterEntity::Walking,
+				8.0,
+				false,
+				true); // 位相を保ちながら切り替え（ブレンド）
+		}
+	}
+
+	// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
+	double speed = pEntity->Speed();
+
+	// Running と Warking で再生ピッチがわける
+	if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running)
+	{
+		pEntity->m_pAnimMgr->setPitch((float)speed);
+	}
+	else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Walking)
+	{
+		pEntity->m_pAnimMgr->setPitch((float)((14.0 / 12.0)*speed)); // ハードコーディングはマズイのだ
+	}
+
+	// 旋回による体の傾き（バンク）の設定
+	static const double LikeGravity = 500.0 * 10 * 5; // バンク角の計算に使用。重力に相当する。
+	double CentripetalForce = VelSiz * Turn::TurnSpeed; // 走り動作のSM64HD準拠化でバンク角の設定→向心力を使用できなくなるので、角速度（旋回速度）＋現在の速度から計算する必要がある。
+	static Smoother<double> BankAngleSmoother(6, 0);  // 円滑化
+	double bankangle = atan2(CentripetalForce, LikeGravity); // *重力と遠心力によりバンク角の計算
+	pEntity->m_pAnimMgr->setBankAngle(BankAngleSmoother.Update(-bankangle));
+
+
+}
+
+void Run::Render(PlayerCharacterEntity* pEntity)
+{
+	;
+};
+
+
+void Run::Exit(PlayerCharacterEntity* pEntity)
+{
+
+	// 遠心力による姿勢の傾きの解除
+	pEntity->m_pAnimMgr->setBankAngle(0.0);
+}
+
+// よし、準拠化完了？
+// いや、未だだ。
+// 20:12 コーディング完了。これで動くだろうか？
+// 動いてくれ！
+// なんか動かねー。

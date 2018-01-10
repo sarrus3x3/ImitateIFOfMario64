@@ -158,13 +158,11 @@ private:
 	Turn(const Turn&);
 	Turn& operator=(const Turn&);
 
+
+public:
 	// #### 動作パラメータ
 	static const double TurnDulation;  // 切返しステートの継続時間
 	static const double TurnSpeed;     // 切返し時の旋回速度
-
-	// #### メンバ ####
-
-public:
 
 	// シングルトン
 	static Turn* Instance();
@@ -309,6 +307,33 @@ public:
 	// ##### デバッグ用
 	void DBG_expSubStateDurations( int &c ); // 各サブ状態の継続時間を出力する
 
+};
+
+
+// 走りステート（歩き動作、走り動作）
+class Run : public State
+{
+private:
+	Run() {}
+
+	// コピーコンストラクタ、代入演算子を private に
+	Run(const Run&);
+	Run& operator=(const Run&);
+
+public:
+	// #### 動作パラメータ
+	static const double runSpeed;  // 走りの最高速度（スティックを最大限に倒したときにｷｬﾗｸﾀが出せる最高速度）
+	//static const double turnSpeed; // ｷｬﾗｸﾀの旋回可能な最大速度 → TurnState の TurnSpeed と共用する。
+
+	// シングルトン
+	static Run* Instance();
+
+	virtual void Enter(PlayerCharacterEntity*);
+	virtual void StateTranceDetect(PlayerCharacterEntity*);
+	virtual void Calculate(PlayerCharacterEntity*, PhysicalQuantityVariation&);
+	virtual void Render(PlayerCharacterEntity*);
+	virtual void Exit(PlayerCharacterEntity*);
+	virtual string getStateName() { return "Run"; };
 };
 
 /*
