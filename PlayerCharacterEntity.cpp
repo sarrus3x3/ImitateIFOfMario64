@@ -581,8 +581,10 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 10;
 	pAnimUnq->m_bRepeatAnimation = false;
 	pAnimUnq->m_bCutPartAnimation = true;
-	pAnimUnq->m_fAnimStartTime = 1.0f;
-	pAnimUnq->m_fAnimEndTime = 5.0f;
+	//pAnimUnq->m_fAnimStartTime = 1.0f; // 3.0までブレンド区間（はじめの２フレーム）
+	pAnimUnq->m_fAnimStartTime = 3.0f;
+	pAnimUnq->m_fAnimEndTime = 7.0f;
+	pAnimUnq->m_fAnimInterval = 4.0;
 
 	// --------- Turn --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[Turn];
@@ -601,13 +603,16 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 12;
 	pAnimUnq->m_bRepeatAnimation = false;
 	pAnimUnq->m_bCutPartAnimation = true;
-	pAnimUnq->m_fAnimStartTime = 2.0f;
+	//pAnimUnq->m_fAnimStartTime = 2.0f;  // 4.0までブレンド区間（はじめの２フレーム）
+	pAnimUnq->m_fAnimStartTime = 4.0f; 
 	pAnimUnq->m_fAnimEndTime = 8.0f;
+	pAnimUnq->m_fAnimInterval = 4.0;
 
-	// --------- BreakAfter --------- 
-	pAnimUnq = &m_pAnimUniqueInfoContainer[BreakAfter];
+
+	// --------- StandAfterBreak --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak];
 	pAnimUnq->init();
-	pAnimUnq->m_sAnimName = "BreakAfter";
+	pAnimUnq->m_sAnimName = "StandAfterBreak";
 	pAnimUnq->m_CurAttachedMotion = 12;
 	pAnimUnq->m_bRepeatAnimation = false;
 	pAnimUnq->m_bCutPartAnimation = true;
@@ -630,10 +635,11 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_sAnimName = "Running2";
 	pAnimUnq->m_CurAttachedMotion = 13;
 	pAnimUnq->m_bRepeatAnimation = true;
-	pAnimUnq->m_bCutPartAnimation = true;
-	pAnimUnq->m_fAnimStartTime = 0.0f;
-	pAnimUnq->m_fAnimEndTime = 14.0f;
-
-
+	pAnimUnq->m_bCutPartAnimation = false; 
+	pAnimUnq->m_fAnimStartTime = 5.0f; // 再生開始の起点、また歩きモーションと同期をとるための特異点的な場所。
+	// pAnimUnq->m_fAnimEndTime = 14.0f; // m_bCutPartAnimation=falseアニメーションにとって、m_fAnimEndTimeは参照されない。
+	pAnimUnq->m_fUniquePlayPitch = (float)(31.11 / 79.80); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
+	pAnimUnq->m_fAnimInterval = 14.0;
+	pAnimUnq->m_fExAnimStartTime = 1.0f; // [Turn]モーションからの接続で使用。
 
 };

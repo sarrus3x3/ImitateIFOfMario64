@@ -11,7 +11,8 @@ static const float ROTATE_SPEED = DX_PI_F/90;  //回転スピード
 // コンストラクタ
 CameraWorkManager::CameraWorkManager() :
 	m_CurCamMode(RotateCamOnGazePoint),
-	m_dTilt(DX_PI*0.5),
+	//m_dTilt(DX_PI*0.5),
+	m_dTilt(DX_PI*0.05), 
 	m_dHead(0),
 	m_dCamDistFrmFP(100.0),
 	m_dCamHight(30.0),
@@ -63,7 +64,11 @@ void CameraWorkManager::getMouseWheelInput( double timeslice )
 	// C:\Users\kotaro MIHARA\Dropbox\Projects\GraphDraw_v0.0\GraphDraw_v0.0
 	// DrawGraphMgr::update_scale() より流用
  
-	static double m_scroll; // スクロール量
+	// カメラ距離の初期値を変更する場合は、
+	// m_scroll と scrlloc を同じ値にすること。
+	// -1 : 結構近い。
+
+	static double m_scroll = -1; // スクロール量
 	static const double maxsc =  2.302585093;   // log(10)  - 倍率の上限値
 	static const double minsc = -2.302585093;   // log(0.1) - 倍率の下限値
 
@@ -72,7 +77,7 @@ void CameraWorkManager::getMouseWheelInput( double timeslice )
 	static const double SPRING	       = 20;	// バネ定数
 	static const double DAMPER         = 5;		// 減衰係数
 
-	static double scrlloc = 0; // 位置
+	static double scrlloc = -1; // 位置
 	static double scrlvel = 0; // 速度
 
 	// m_scroll を更新

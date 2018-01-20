@@ -540,14 +540,71 @@ void VirtualController::UpdateAutoControl(double TimeElaps)
 	// * 自動操作シナリオにそってスティック状態（今のところこれだけ）を更新する。
 	
 	// 初期化
-	static int TotalSections = 4;     // 総区間数
+	static int TotalSections = 9;     // 総区間数
 	
+	/*
+	// ## 「切返し接続用ブレーキ」モーションの撮影用
 	// 移動するスティック座標配列
-	static Vector2D StickPoss[4 + 1] = {Vector2D(0,0),Vector2D(1,0),Vector2D(1,0),Vector2D(-0.866,-0.5),Vector2D(-0.866,-0.5)};
+	static Vector2D StickPoss[9 + 1] = {
+		Vector2D(0,0),
+		Vector2D(1,0),
+		Vector2D(1,0),
+		Vector2D(-cos(0.01),sin(0.01)), // Vector2D(1,0)から180反転させると、RotateTowards3D のバグ？があるため、少しだけずらす。
+		Vector2D(-cos(0.01),sin(0.01)),
+		Vector2D(1,0),
+		Vector2D(1,0),
+		Vector2D(-cos(0.01),sin(0.01)), // Vector2D(1,0)から180反転させると、RotateTowards3D のバグ？があるため、少しだけずらす。
+		Vector2D(-cos(0.01),sin(0.01)),
+		Vector2D(0,0),
+	};
 
 	// 時間配分の配列（累積値）
-	//static double   TimeAlloc[4 + 1] = { 0.0,0.5,5.0,0.5,5.0 };
-	static double   TimeAlloc[4 + 1] = {0.0,0.5,5.5,5.501,8.0};
+	static double   TimeAlloc[9 + 1] = {
+		0.0,
+		0.1,
+		0.1 + 3.0,
+		0.1 + 3.0 + 0.1,
+		0.1 + 3.0 + 0.1 + 0.8,
+		0.1 + 3.0 + 0.1 + 0.8 + 0.1,
+		0.1 + 3.0 + 0.1 + 0.8 + 0.1 + 0.8,
+		0.1 + 3.0 + 0.1 + 0.8 + 0.1 + 0.8 + 0.1,
+		0.1 + 3.0 + 0.1 + 0.8 + 0.1 + 0.8 + 0.1 + 0.8,
+		0.1 + 3.0 + 0.1 + 0.8 + 0.1 + 0.8 + 0.1 + 0.8 + 0.1
+	};
+	*/
+
+	// ## 「停止接続用ブレーキ」モーションの撮影用
+	// 移動するスティック座標配列
+	static Vector2D StickPoss[11 + 1] = {
+		Vector2D(0,0),
+		Vector2D(1,0),
+		Vector2D(1,0),
+		Vector2D(0,0),
+		Vector2D(0,0),
+		Vector2D(-1,0),
+		Vector2D(-1,0),
+		Vector2D(0,0),
+		Vector2D(0,0),
+		Vector2D(1,0),
+		Vector2D(1,0),
+		Vector2D(0,0),
+	};
+
+	// 時間配分の配列（累積値）
+	static double   TimeAlloc[11 + 1] = {
+		0.0,
+		0.05,
+		0.05 + 2.0,
+		0.05 + 2.0 + 0.05,
+		0.05 + 2.0 + 0.05 + 1.0,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05 + 1.0,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05 + 1.0 + 0.05,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0,
+		0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05 + 1.0 + 0.05 + 2.0 + 0.05
+	};
 
 	Vector2D StickPos;
 	for (int i=0; i<TotalSections; i++)

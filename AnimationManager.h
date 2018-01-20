@@ -39,8 +39,9 @@ struct AnimUniqueInfo
 	float    m_fAnimEndTime;        // （元のモーションに対して）アニメーションの終了時間。Repeat=ON の場合は設定は無視
 
 	// アニメーションの同期に関する
-	float    m_fUniquePlayPitch;    // 他のアニメーションと別に再生ピッチを指定したい場合に使用（globalのPlayPichの影響は受ける）	
-	float    m_fAnimInterval;       // アニメーション切替時に同期を取るときに使われる。m_MotionTotalTimeとは違うものであることに注意
+	float    m_fUniquePlayPitch;    // アニメーション固有の再生ピッチ（最終的な再生ピッチ＝ m_PlayPitch(※) * UniquePlayPitch で計算される。※AnimationManagerクラスのメンバ）	
+	float    m_fAnimInterval;       // アニメーション切替時に同期を取るときに使われる。m_MotionTotalTimeとは違うものであることに注意。
+
 
 	// 標準以外のアニメーションの開始時間（AnimationManager.setAnimExStartTime()メソッドで使用）
 	float    m_fExAnimStartTime;
@@ -194,12 +195,15 @@ public:
 	// ブレンド指定する場合は、引数に、ブレンド時間（デフォルト0）、現在のアニメーションの停止要否（デフォルト要）を設定
 	// AnimSwitchTime 以降を指定しないとブレンドなしで切替する。
 	// SyncToPrv ON にすると、位相を保ってアニメーション切替行う。ただし、Running<->Walkingにしか対応してない
+	//【SyncToPrv（モーションの同期的シフト）を使用するに当たっての注意】
+	//	* シフトする２つのモーションの AnimUniqueInfo で、正しく「m_fUniquePlayPitch」と「m_fAnimInterval」が設定されている必要がある。
+	//	* シフト先のモーションにおける再生開始点は、２つのモーションの開始定義位置を考慮して、２つのモーションの再生時間の比からシフト元モーションの現在再生位置からシフト先モーションにマッピングされる。詳細は実装を見て。
 	void setAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true, bool SyncToPrv=false ); 
 
 	// ----- 標準以外の開始時間でアニメーションのセット
 	// アニメーションの開始時間を標準以外で再生させたい場合。
 	// 追加の開始時間は、アニメーション毎に AnimUniqueInfo.m_fAddAnimStartTime で設定。
-	// それ以外は setAnim と同じ。ただし、StopPrvAnim = true はありえないので、引数から削除した。
+	// それ以外は setAnim と同じ。ただし、SyncToPrv = true はありえないので、引数から削除した。
 	void setAnimExStartTime( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true ); 
 
 	// ----- アニメーションの再生予約。

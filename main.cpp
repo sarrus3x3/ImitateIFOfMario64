@@ -30,10 +30,10 @@
 // ########### 制御用 defin ###########
 
 //#define MONUMENT_ON // モニュメント（円柱の密林）あり
-//#define GROUND_MESH_ON  // 地面の方眼模様あり
+#define GROUND_MESH_ON  // 地面の方眼模様あり
 //#define FARFAR_AWAY // 遠景（宇宙レベル）で遠いオブジェクトを描画する場合
-#define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
-#define ITEM_GETTING // アイテム収集演出
+// #define FLOATING_DUNGEON  // 浮遊ダンジョンジオラマ
+// #define ITEM_GETTING // アイテム収集演出
 
 
 // ####################################
@@ -483,25 +483,26 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		//行数
 		int colmun = 10;
 		int width = 15;
+		unsigned int stringColor = GetColor(0, 0, 0);
 
 		// m_FrameTimeHistoryを更新
 		int AvFPS = (int)(1.0 / InsMeasureFPS.Update(timeelaps));
 
 		// FPSを出力
-		DrawFormatString( 0, width*colmun, 0xffffff, "FPS:%d", AvFPS ); 
+		DrawFormatString( 0, width*colmun, stringColor, "FPS:%d", AvFPS );
 		colmun++;
 
 		// カメラモードを出力
 		std::string sCamMode = CameraWorkManager::Instance()->getCurCamModeName();
-		DrawFormatString( 0, width*colmun, 0xffffff, "CamMode:%s", sCamMode.c_str() ); 
+		DrawFormatString( 0, width*colmun, stringColor, "CamMode:%s", sCamMode.c_str() );
 		colmun++;
 
 		// Entityの速度を表示
-		DrawFormatString( 0, width*colmun, 0xffffff, "Entity Speed:%8f",PCEnti.Speed() ); 
+		DrawFormatString( 0, width*colmun, stringColor, "Entity Speed:%8f",PCEnti.Speed() );
 		colmun++;
 
 		// 現在のStateの描画
-		DrawFormatString( 0, width*colmun, 0xffffff, "StateName:%s", PCEnti.DBG_getCurrentStateName().c_str() ); 
+		DrawFormatString( 0, width*colmun, stringColor, "StateName:%s", PCEnti.DBG_getCurrentStateName().c_str() );
 		colmun++;
 
 		// アナログスティック状態とEntityの向きを描画

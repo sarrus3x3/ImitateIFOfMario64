@@ -239,7 +239,17 @@ inline Vector3D operator%( const Vector3D &vec1, const Vector3D &vec2 )
 inline double Angle3D(const Vector3D &vec1, const Vector3D &vec2)
 {
 	double cosval = (vec1*vec2) / (vec1.len()*vec2.len());
-	return acos(cosval);
+
+	// (2018/01/14)
+	// vec1 と vec2 の角度が 0 に近いと、計算誤差で、|cosval| > 1.0 となってしまい、戻り値が、nanになってしまうことの対処
+	if( fabs(cosval)>1.0 ) cosval /= fabs(cosval);
+
+	double reacos = acos(cosval);
+	assert(!isnan(reacos)); // 念のためnan判定を。
+	
+	return reacos;
+
+
 };
 
 

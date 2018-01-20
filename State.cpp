@@ -61,19 +61,19 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 		// ジャンプ後であれば、着地のアニメーションを再生する
 		pEntity->m_pAnimMgr->setPitch(20.0);
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Jump_Landing);
-		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing);
+		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2);
 	}
 	else if( pEntity->isMatchPrvState( Break::Instance() ) )
 	{
 		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreakingAfter);
-		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing, 10.0 );
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak);
+		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2, 10.0 );
 		pEntity->m_pAnimMgr->setPitch(20.0); // ピッチを調整
 
 	}
 	else
 	{
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Standing, 5.0 );
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Standing2, 5.0 );
 		pEntity->m_pAnimMgr->setPitch( 20.0 );
 	}
 
@@ -147,13 +147,30 @@ void Standing::StateTranceDetect( PlayerCharacterEntity* pEntity )
 
 void Standing::Calculate( PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& PhyVar )
 {
-	static const double ViscousResistance =  40.0; // 粘性抵抗係数（Runningの粘性抵抗より大きくとっている）
-	static const double RotateVelSpeed    =   6.0; // 旋回速度
-
 	PhyVar.init(); // 初期化
 
-	// 完全に速度が0に落ちきっていないため、減速は継続
-	PhyVar.Force = -ViscousResistance * pEntity->Velocity() ;
+	// (2018/01/14)
+	// 動作モデルをSuperMario46HD準拠化。
+
+	// 速度変化なし
+	PhyVar.UseVelVar = false;
+	PhyVar.Force = Vector3D(0, 0, 0);
+
+	// キャラクタ向きの手動設定を有効
+	PhyVar.UseHeading = true;
+	PhyVar.Heading = pEntity->Heading();
+
+	// 位置はデフォルト更新（現在の速度に従い更新）
+	PhyVar.UsePosVar = false;
+
+	// 減速度を計算
+	double deceleration = 60.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
+	
+	// 速度を更新
+	Vector3D NewVel = MoveTowards(pEntity->Velocity().len(), 0, deceleration) * pEntity->Heading();
+	pEntity->setVelocity(NewVel); // 更新された速度をEntityにセット
+
+
 }
 
 void Standing::Render(PlayerCharacterEntity* pEntity )
@@ -335,20 +352,56 @@ Break* Break::Instance()
 
 void Break::Enter(PlayerCharacterEntity* pEntity)
 {
-	// ブレーキ状態のタイマオン
-	pEntity->StopWatchOn();
+	// (2018/01/14)
+	// はじめは、ブレーキモーションの設定(BreaktoTurn,BreaktoStop)をここでやっていたが、
+	// Calculate の中で、現在再生しているモーションがブレーキでなければ、ブレーキを再生させるようにした。
+	// 【理由】
+	// BreaktoTurn,BreaktoStopのどちらを再生するかの判定の精度を上げるため。
+	// スティックを（離したのではなく）反対方向に切り替えした場合も、「急ブレーキ後停止」のモーションが再生されてしまう場合がある。
+	// スティックが反対方向に移動途中で、ちょうど入力が０になってしまっているタイミングである可能性がある。
+	// そこで、Enter時は、モーションは変更しないようにしておき（Runningのままにして）
+	// 次のBreak状態の更新時(Calculate)で、再度スティックの状態をチェックして再生するモーションを判断する。
+	// そうすることで、Breakに入った瞬間ではスティック入力が 0 でも、スティックを切返していれば、
+	// 次のタイムスライスでは、0 から脱している可能性が大きいため。
+	// ※ ただし、スティックを動かすスピードゆっくりだった場合はまだ 0 から脱していない可能性も残る。
 
-	// アニメーションの設定
-	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Breaking, 0.0); // ブレーキのアニメーションを設定
-	
-	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength();
-	
-	//   turnに遷移するタイミングでは、既にブレーキアニメーションの再生が終わっている必要がある。
-	//   ブレーキに入る最低速度（＆ブレーキの減速度）から、ブレーキ継続する最小時間を計算し、それ以下にする必要がある。
-	double BrakingDulation = 0.08;
-	float PlayPitch = (float)(AnimTotalTime/BrakingDulation);
-	
-	pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+	// (2018/01/15)
+	// 再度見直し。
+	// ★最終的に決まった方式について、考え方を残すこと！
+
+	// ## アニメーション制御
+
+	if ((pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
+		&& (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoStop))
+	{
+		// ブレーキ状態のタイマオン
+		pEntity->StopWatchOn();
+
+		// 続いて切返しに入るか、そのまま停止するか、どちらのモーションのを再生するか判定。
+		// 判定ロジックは、RunStateでBreakStateに遷移するときの条件を同じ。
+		if (!(pEntity->MoveInput().isZero()))
+		{ // スティック入力あり。
+		  // 切返し動作に接続するモーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0); // ブレーキのアニメーションを設定
+		}
+		else
+		{ // スティック入力なし。
+		  // そのまま停止するモーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop, 1.0); // ブレーキのアニメーションを設定
+		}
+
+		//   turnに遷移するタイミングでは、既にブレーキアニメーションの再生が終わっている必要がある。
+		//   ブレーキに入る最低速度（＆ブレーキの減速度）から、ブレーキ継続する最小時間を計算し、それ以下にする必要がある。
+		static double BrakingDulation = 0.08;
+		float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength();
+		float PlayPitch = (float)(AnimTotalTime / BrakingDulation);
+		pEntity->m_pAnimMgr->setPitch(PlayPitch);
+
+	}
+
+
+
 }
 
 void Break::StateTranceDetect(PlayerCharacterEntity* pEntity)
@@ -388,7 +441,7 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 
 	// 速度の大きさを更新
 	double deceleration = 60.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
-	//double deceleration = 10.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
+	//double deceleration = 30.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
 	double NewVelSiz = MoveTowards(VelSiz, 0, deceleration);
 
 	// 新しい速度ベクトルを再構築
@@ -443,6 +496,30 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 		} 
 	}
 
+
+	// ## アニメーション制御
+
+	// 「切返し接続のブレーキモーション」（BreaktoTurn）と、「停止接続のブレーキモーション」（BreaktoStop）について、
+	// Break動作中に、スティックの状態に応じて、モーションを変更するようにする。
+	if (!(pEntity->MoveInput().isZero()))
+	{ // スティック入力あり。
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
+		{
+			// 切返し動作に接続するモーションを再生
+			pEntity->m_pAnimMgr->setAnim( PlayerCharacterEntity::BreaktoTurn, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+		}
+
+	}
+	else
+	{ // スティック入力なし。
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
+		{
+			// そのまま停止するモーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+		}
+	}
+
+
 }
 
 void Break::Render(PlayerCharacterEntity* pEntity)
@@ -458,7 +535,8 @@ void Break::Exit(PlayerCharacterEntity* pEntity)
 }
 
 // #### Turn ステートのメソッド ########################################################################
-const double Turn::TurnDulation = 0.4; // 切返しステートの継続時間
+//const double Turn::TurnDulation = 0.4; // 切返しステートの継続時間
+const double Turn::TurnDulation = 0.3; // 切返しステートの継続時間 2018/01/14
 //const double Turn::TurnSpeed = 1.5 * DX_PI;   // 切返し時の旋回速度
 // 2018/01/07 チューニング中
 const double Turn::TurnSpeed    = 4.0 * DX_PI;   // 切返し時の旋回速度
@@ -475,12 +553,10 @@ void Turn::Enter(PlayerCharacterEntity* pEntity)
 	pEntity->StopWatchOn();
 
 	// 切返し動作のアニメーションを再生
-	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::TurnFixHead);
-	pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::TurnFinalFly, 0.0); // ブレンドするとモーション破綻する問題あるため
+	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turn, 0.0); // ブレンドするとモーション破綻する問題あるため
 
 	// TurnDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
-	float AnimTotalTime = 16.0 + 5.0; // TurnFullの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
-	// ↑本来なら、AnimUniqueInfo にアニメーションの長さを取得するメソッドをもたせるべきである。
+	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); // TurnFullの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
 	float PlayPitch = (float)(AnimTotalTime / TurnDulation);
 	pEntity->m_pAnimMgr->setPitch(PlayPitch);
 
@@ -1605,8 +1681,18 @@ Run* Run::Instance()
 void Run::Enter(PlayerCharacterEntity* pEntity)
 {
 	// アニメーションの設定。
-	// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
-	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0);
+	if (pEntity->isMatchPrvState(Turn::Instance()))
+	{
+		// 切返し動作からの接続の場合は、滑らかに接続するように、走りモーションの再生開始位置を特別に設定する。
+		pEntity->m_pAnimMgr->setAnimExStartTime(PlayerCharacterEntity::Running2, 0.0);
+
+	}
+	else
+	{
+		// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0);
+	}
+
 
 }
 
@@ -1628,6 +1714,7 @@ void Run::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& P
 	// キャラクタ向きは PhyVar.Heading の値を設定する。
 	PhyVar.UseHeading = true;
 	PhyVar.Heading = pEntity->Heading(); // ここでも設定しておかないと、途中で、状態遷移したときに、headingﾍﾞｸﾄﾙが消失する。
+	Vector3D oldHeading = pEntity->Heading(); // バンク角演出で使用するため
 
 	// 位置はデフォルト更新（現在の速度に従い更新）
 	PhyVar.UsePosVar = false;
@@ -1716,10 +1803,10 @@ void Run::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& P
 	{ // スティックの入力の大きさが 0.5 より大きければ、
 		
 		// 「走り」のアニメーションが再生されていなければ、再生する。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Running)
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Running2)
 		{
 			pEntity->m_pAnimMgr->setAnim(
-				PlayerCharacterEntity::Running,
+				PlayerCharacterEntity::Running2,
 				8.0,
 				false,
 				true); // 位相を保ちながら切り替え（ブレンド）
@@ -1740,25 +1827,52 @@ void Run::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& P
 	}
 
 	// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
-	double speed = pEntity->Speed();
-
 	// Running と Warking で再生ピッチがわける
-	if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running)
+	double speed = pEntity->Speed();
+	pEntity->m_pAnimMgr->setPitch((float)speed);
+
+	/*
+	if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running2)
 	{
-		pEntity->m_pAnimMgr->setPitch((float)speed);
+		pEntity->m_pAnimMgr->setPitch((float)(speed)); // 固有再生ピッチはモーションの移動速度から計算(OneDrive\ドキュメント\ブログ記事（自作ゲーム）\記事・動画作成\20170730_モーション作成\走り\MMDモーション\走り速度検討)
 	}
 	else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Walking)
 	{
-		pEntity->m_pAnimMgr->setPitch((float)((14.0 / 12.0)*speed)); // ハードコーディングはマズイのだ
+		pEntity->m_pAnimMgr->setPitch((float)(speed)); // ハードコーディングはマズイのだ
 	}
+	*/
 
-	// 旋回による体の傾き（バンク）の設定
-	static const double LikeGravity = 500.0 * 10 * 5; // バンク角の計算に使用。重力に相当する。
-	double CentripetalForce = VelSiz * Turn::TurnSpeed; // 走り動作のSM64HD準拠化でバンク角の設定→向心力を使用できなくなるので、角速度（旋回速度）＋現在の速度から計算する必要がある。
-	static Smoother<double> BankAngleSmoother(6, 0);  // 円滑化
+	// ## 旋回による体の傾き（バンク）の設定
+	//static const double LikeGravity = 500.0 * 10 * 5; // バンク角の計算に使用。重力に相当する。
+	static const double LikeGravity = 500.0 * 5; // バンク角の計算に使用。重力に相当する。
+	
+	double angular=0.0; // 角速度
+
+	// Angle3D の計算が nan になることの対策。外積値がほぼ 0 なら、Angle3D 計算を回避。
+	double inner = pEntity->Heading()*pEntity->Side();
+
+	if (!(fabs(inner)<0.00001))
+	{
+		// ｷｬﾗｸﾀ向きベクトルの差分から、角速度（絶対値）の計算
+		double Omega = Angle3D(oldHeading,pEntity->Heading()) / pEntity->TimeElaps(); // また Angle3D を使用するのは、あまり計算効率のいいやり方ではないことは自覚している。
+
+		// ｷｬﾗｸﾀローカル座標に対する旋回の向きを計算
+		double  RotSgn = (double)sgn(inner);
+
+		// 角速度（符号付き）
+		angular = Omega * RotSgn;
+
+	}
+	
+	// ｷｬﾗｸﾀの速度・角速度、そして、旋回の向きから、向心力を計算する。
+	double CentripetalForce = VelSiz * angular; // 走り動作のSM64HD準拠化でバンク角の設定→向心力を使用できなくなるので、角速度（旋回速度）＋現在の速度から計算する必要がある。
+
+	static Smoother<double> BankAngleSmoother(12, 0);  // 円滑化 <- Stateに入るたび(Enterで)初期化しないとダメだな。
 	double bankangle = atan2(CentripetalForce, LikeGravity); // *重力と遠心力によりバンク角の計算
+	
 	pEntity->m_pAnimMgr->setBankAngle(BankAngleSmoother.Update(-bankangle));
 
+	//pEntity->m_pAnimMgr->setBankAngle(BankAngleSmoother.Update(0.5));
 
 }
 

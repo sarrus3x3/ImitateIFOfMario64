@@ -234,9 +234,14 @@ void AnimationManager::setAnimMain(
 
 		float CurInterval = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fAnimInterval;
 		float PrvInterval = m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_fAnimInterval;
-		assert( (CurInterval>0) && (PrvInterval>0) && "Unsupport." );
+		float CurAminStart = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fAnimStartTime;
+		float PrvAminStart = m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_fAnimStartTime;
+		
+		assert( (CurInterval>0) && (PrvInterval>0) && "同期的シフトするどちらかのモーションのm_fAnimIntervalが未設定." );
 		float scale = CurInterval/PrvInterval;
-		m_pCurAnimPlayInfo->m_CurPlayTime = scale * m_pPrvAnimPlayInfo->m_CurPlayTime;
+
+		m_pCurAnimPlayInfo->m_CurPlayTime 
+			= scale * (m_pPrvAnimPlayInfo->m_CurPlayTime - PrvAminStart) + CurAminStart;
 
 	}
 
