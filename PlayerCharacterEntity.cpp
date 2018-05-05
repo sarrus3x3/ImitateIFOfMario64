@@ -608,7 +608,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimEndTime = 8.0f;
 	pAnimUnq->m_fAnimInterval = 4.0;
 
-
 	// --------- StandAfterBreak --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak];
 	pAnimUnq->init();
@@ -642,4 +641,49 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimInterval = 14.0;
 	pAnimUnq->m_fExAnimStartTime = 1.0f; // [Turn]モーションからの接続で使用。
 
+	// 2018/05/05
+
+	// --------- BreaktoStop2 --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreaktoStop2];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreaktoStop2";
+	pAnimUnq->m_CurAttachedMotion = 14;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	//pAnimUnq->m_fAnimStartTime = 2.0f;  // 4.0までブレンド区間（はじめの２フレーム）
+	pAnimUnq->m_fAnimStartTime = 15.0f;
+	pAnimUnq->m_fAnimEndTime = 23.0f;
+	pAnimUnq->m_fAnimInterval = 8.0;
+
+	// --------- StandAfterBreak2 --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak2];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "StandAfterBreak2";
+	pAnimUnq->m_CurAttachedMotion = 14;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 23.0f;
+	pAnimUnq->m_fAnimEndTime = 29.0f;
+	pAnimUnq->m_fUniquePlayPitch = 2.0f; // 固有ピッチ２倍
+
+	// --------- StartRunning --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[StartRunning];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "StartRunning";
+	pAnimUnq->m_CurAttachedMotion = 14;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 0.0f;
+	pAnimUnq->m_fAnimEndTime = 11.0f;
+	pAnimUnq->m_fUniquePlayPitch = 2.0f; // 固有ピッチ２倍
+
+	// --------- StartWalking --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[StartWalking];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "StartWalking";
+	pAnimUnq->m_CurAttachedMotion = 15;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 0.0f;
+	pAnimUnq->m_fAnimEndTime = 6.0f;
 };
