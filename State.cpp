@@ -717,7 +717,7 @@ void SurfaceMove::Enter( PlayerCharacterEntity* pEntity )
 		// ダッシュからの切返しの後であれば、走りのアニメーションを継続する。
 		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running, 5.0, false );
 		//pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running  );
-		pEntity->m_pAnimMgr->setAnimExStartTime( PlayerCharacterEntity::Running, 0.5 );
+		//pEntity->m_pAnimMgr->setAnimExStartTime( PlayerCharacterEntity::Running, 0.5 );
 
 		/*
 		// サブステートの評価を行う
@@ -1684,7 +1684,9 @@ void Run::Enter(PlayerCharacterEntity* pEntity)
 	if (pEntity->isMatchPrvState(Turn::Instance()))
 	{
 		// 切返し動作からの接続の場合は、滑らかに接続するように、走りモーションの再生開始位置を特別に設定する。
-		pEntity->m_pAnimMgr->setAnimExStartTime(PlayerCharacterEntity::Running2, 0.0);
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running2, 0.0, true, false, 1.0f);
+		
+		//pEntity->m_pAnimMgr->setAnimExStartTime(PlayerCharacterEntity::Running2, 0.0);
 
 	}
 	else

@@ -162,25 +162,14 @@ void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, Play
 	}
 };
 
-void AnimationManager::setAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, bool SyncToPrv )
+void AnimationManager::setAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, bool SyncToPrv, float StartFrame )
 {
 	// 割り込みで新しいアニメーションがsetAnimされた場合は、予約中の設定は破棄される。
 	DiscardReservedAnim();
 
 	// setAnimの処理本体を呼ぶ
-	setAnimMain( AnimID, AnimSwitchTime, StopPrvAnim, SyncToPrv );
+	setAnimMain( AnimID, AnimSwitchTime, StopPrvAnim, SyncToPrv, StartFrame);
 };
-
-void AnimationManager::setAnimExStartTime( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim )
-{
-	// setAnimを呼ぶ
-	setAnim( AnimID, AnimSwitchTime, StopPrvAnim );
-
-	// 開始時刻を AnimUniqueInfo.m_fExAnimStartTime に変更
-	m_pCurAnimPlayInfo->m_CurPlayTime = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fExAnimStartTime;
-
-};
-
 
 // ブレンド指定する場合は、引数に、ブレンド時間（デフォルト0）、現在のアニメーションの停止要否（デフォルト要）を設定
 // AnimSwitchTime 以降を指定しないとブレンドなしで切替する。
@@ -188,7 +177,8 @@ void AnimationManager::setAnimMain(
 	PlayerCharacterEntity::AnimationID AnimID,
 	double AnimSwitchTime, 
 	bool StopPrvAnim, 
-	bool SyncToPrv )
+	bool SyncToPrv,
+	float StartFrame )
 {
 
 	// ブレンド中の場合はブレンド処理を解除する
@@ -244,6 +234,13 @@ void AnimationManager::setAnimMain(
 			= scale * (m_pPrvAnimPlayInfo->m_CurPlayTime - PrvAminStart) + CurAminStart;
 
 	}
+
+	if (StartFrame >= 0.0)
+	{
+		// 開始時刻を StartFrame に変更
+		m_pCurAnimPlayInfo->m_CurPlayTime = StartFrame;
+	}
+
 
 };
 
@@ -443,10 +440,10 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 	
 };
 
-void AnimationManager::ReserveAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim )
+void AnimationManager::ReserveAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, float StartFrame )
 {
 	// キューに積むだけ
-	m_qAnimReservationQueue.push( ArgumentOfSetAnim( AnimID, AnimSwitchTime, StopPrvAnim ) );
+	m_qAnimReservationQueue.push( ArgumentOfSetAnim( AnimID, AnimSwitchTime, StopPrvAnim, StartFrame ) );
 };
 
 void AnimationManager::PlayReservedAnim()
@@ -456,7 +453,7 @@ void AnimationManager::PlayReservedAnim()
 	{
 		// 一番最初に予約されたアニメーションを再生設定
 		ArgumentOfSetAnim Arg = m_qAnimReservationQueue.front();
-		setAnimMain( Arg.m_eAnimID, Arg.m_dAnimSwitchTime, Arg.m_bStopPrvAnim );
+		setAnimMain( Arg.m_eAnimID, Arg.m_dAnimSwitchTime, Arg.m_bStopPrvAnim, false, Arg.m_fStartFrame );
 		m_qAnimReservationQueue.pop();
 	}
 };

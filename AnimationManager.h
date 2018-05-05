@@ -119,13 +119,15 @@ struct ArgumentOfSetAnim
 	PlayerCharacterEntity::AnimationID m_eAnimID; // セットするアニメーションID
 	double m_dAnimSwitchTime; // ブレンド時間
 	bool   m_bStopPrvAnim;    // 現在のアニメーションの停止要否
+	float  m_fStartFrame;     // 任意のモーションの再生開始点
 
 	// コンストラクタ
-	ArgumentOfSetAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim )
+	ArgumentOfSetAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, float StartFrame )
 	{
 		m_eAnimID         = AnimID;
 		m_dAnimSwitchTime = AnimSwitchTime;
 		m_bStopPrvAnim    = StopPrvAnim;
+		m_fStartFrame     = StartFrame;
 	}
 
 };
@@ -175,8 +177,9 @@ private:
 	void setAnimMain( 
 		PlayerCharacterEntity::AnimationID, 
 		double AnimSwitchTime=0.0, 
-		bool StopPrvAnim=true, 
-		bool SyncToPrv=false 
+		bool StopPrvAnim =true, 
+		bool SyncToPrv   =false,
+		float StartFrame = -1.0f
 		); 
 
 public:
@@ -198,18 +201,13 @@ public:
 	//【SyncToPrv（モーションの同期的シフト）を使用するに当たっての注意】
 	//	* シフトする２つのモーションの AnimUniqueInfo で、正しく「m_fUniquePlayPitch」と「m_fAnimInterval」が設定されている必要がある。
 	//	* シフト先のモーションにおける再生開始点は、２つのモーションの開始定義位置を考慮して、２つのモーションの再生時間の比からシフト元モーションの現在再生位置からシフト先モーションにマッピングされる。詳細は実装を見て。
-	void setAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true, bool SyncToPrv=false ); 
-
-	// ----- 標準以外の開始時間でアニメーションのセット
-	// アニメーションの開始時間を標準以外で再生させたい場合。
-	// 追加の開始時間は、アニメーション毎に AnimUniqueInfo.m_fAddAnimStartTime で設定。
-	// それ以外は setAnim と同じ。ただし、SyncToPrv = true はありえないので、引数から削除した。
-	void setAnimExStartTime( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true ); 
+	// StartFrame : デフォルト以外のモーションの開始位置（フレーム）を指定。負値の場合は、デフォルトの再生位置で再生する。
+	void setAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true, bool SyncToPrv=false, float StartFrame=-1.0f ); 
 
 	// ----- アニメーションの再生予約。
 	// アニメーション設定情報は AnimReservationQueue にスタックされ、再生中のアニメーションが再生終了したら設定される。
 	// ※ 割り込みで新しいアニメーションがsetAnimされた場合は、予約中の設定は破棄される。
-	void ReserveAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true ); 
+	void ReserveAnim( PlayerCharacterEntity::AnimationID, double AnimSwitchTime=0.0, bool StopPrvAnim=true, float StartFrame = -1.0f );
 
 	// ----- アニメーションの再生予約情報の破棄
 	// 再生予約されたアニメーションを破棄する = キューを空にする
