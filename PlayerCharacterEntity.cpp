@@ -675,7 +675,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation = true;
 	pAnimUnq->m_fAnimStartTime = 0.0f;
 	pAnimUnq->m_fAnimEndTime = 11.0f;
-	pAnimUnq->m_fUniquePlayPitch = 2.0f; // ŒÅ—Lƒsƒbƒ`‚Q”{
+	pAnimUnq->m_fUniquePlayPitch = 1.5f; // ŒÅ—Lƒsƒbƒ`‚Q”{
 
 	// --------- StartWalking --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StartWalking];

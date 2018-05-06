@@ -1691,8 +1691,9 @@ void Run::Enter(PlayerCharacterEntity* pEntity)
 	}
 	else
 	{
-		// 走り出しを自然にするようにアニメーション開始位置とブレンド実施
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Walking, 5.0);
+		// 歩き出し ＋ 歩き中を予約再生。
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StartWalking ); // 歩き出しモーションを再生
+		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Walking, 0.0, true, 6.0); // 歩き中を開始位置を指定して予約再生
 	}
 
 
@@ -1802,47 +1803,88 @@ void Run::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation& P
 	// ## 「歩き」or「走り」のアニメーションの設定
 
 	if (pEntity->m_pVirCntrl->m_dStickL_len > 0.5)
-	{ // スティックの入力の大きさが 0.5 より大きければ、
+	{ // スティックの入力の大きさが 0.5 より大きければ、「走り」状態のモーションを再生。
 		
-		// 「走り」のアニメーションが再生されていなければ、再生する。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Running2)
+		// 「歩き中」のモーションが再生中であれば、
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Walking)
 		{
+			// 「走り中」のモーションを再生する。(位相同期シフト)
 			pEntity->m_pAnimMgr->setAnim(
 				PlayerCharacterEntity::Running2,
 				8.0,
 				false,
 				true); // 位相を保ちながら切り替え（ブレンド）
+
+			// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
+			double speed = pEntity->Speed();
+			pEntity->m_pAnimMgr->setPitch((float)speed);
+
+		}
+		// 「歩き出し」のモーションを再生中であれば、
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::StartWalking)
+		{
+			// 「走り出し」のモーションを再生する。
+			pEntity->m_pAnimMgr->setAnim(
+				PlayerCharacterEntity::StartRunning,
+				3.0,   // ブレンド時間は要調整。走り出しのモーションから移行するためブレンドは必要。
+				true ); 
+			// 走り出しmot完了後,走り中motが再生されるように予約再生。
+			// ・接続がなめらかになるように走り中mot再生開始点を調整
+			pEntity->m_pAnimMgr->ReserveAnim(
+				PlayerCharacterEntity::Running2,
+				4.0,
+				true,
+				8.0 ); // 飛出しのポーズところ。左右対称に注意して。
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running2)
+		{
+			// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
+			double speed = pEntity->Speed();
+			pEntity->m_pAnimMgr->setPitch((float)speed);
 		}
 
 	}
 	else
-	{ // スティックの入力の大きさが 0.5 より小さければ、
-		//「歩き」のアニメーションが再生されていなければ、再生する。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::Walking)
+	{ // スティックの入力の大きさが 0.5 より小さければ、「歩き」状態のモーションを再生
+
+		// 「走り中」のモーションを再生中であれば、
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running2)
 		{
+			// 「歩き中」のモーションを再生する。
 			pEntity->m_pAnimMgr->setAnim(
 				PlayerCharacterEntity::Walking,
 				8.0,
 				false,
 				true); // 位相を保ちながら切り替え（ブレンド）
+
+			// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
+			// Running と Warking で再生ピッチがわける
+			double speed = pEntity->Speed();
+			pEntity->m_pAnimMgr->setPitch((float)speed);
+
 		}
-	}
+		// 「走り出し」のモーションを再生中であれば、
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::StartRunning)
+		{
+			// 「歩き中」のモーションをブレンド再生する。
+			// * ブレンド再生
+			// * 接続がなめらかになるように走り中mot再生開始点を調整
+			pEntity->m_pAnimMgr->setAnim(
+				PlayerCharacterEntity::Walking,
+				4.0,
+				true,
+				false,
+				14.0 ); // 左足を一番前に突き出している位置にしておいた。
 
-	// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
-	// Running と Warking で再生ピッチがわける
-	double speed = pEntity->Speed();
-	pEntity->m_pAnimMgr->setPitch((float)speed);
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Walking)
+		{
+			// ｷｬﾗｸﾀの移動速度に応じたアニメーション再生速度になるように、再生ピッチを調整する。
+			double speed = pEntity->Speed();
+			pEntity->m_pAnimMgr->setPitch((float)speed);
+		}
 
-	/*
-	if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Running2)
-	{
-		pEntity->m_pAnimMgr->setPitch((float)(speed)); // 固有再生ピッチはモーションの移動速度から計算(OneDrive\ドキュメント\ブログ記事（自作ゲーム）\記事・動画作成\20170730_モーション作成\走り\MMDモーション\走り速度検討)
 	}
-	else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Walking)
-	{
-		pEntity->m_pAnimMgr->setPitch((float)(speed)); // ハードコーディングはマズイのだ
-	}
-	*/
 
 	// ## 旋回による体の傾き（バンク）の設定
 	//static const double LikeGravity = 500.0 * 10 * 5; // バンク角の計算に使用。重力に相当する。
