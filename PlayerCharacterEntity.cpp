@@ -651,9 +651,11 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bRepeatAnimation = false;
 	pAnimUnq->m_bCutPartAnimation = true;
 	//pAnimUnq->m_fAnimStartTime = 2.0f;  // 4.0までブレンド区間（はじめの２フレーム）
-	pAnimUnq->m_fAnimStartTime = 15.0f;
+	//pAnimUnq->m_fAnimStartTime = 15.0f;
+	pAnimUnq->m_fAnimStartTime = 17.0f;
 	pAnimUnq->m_fAnimEndTime = 23.0f;
-	pAnimUnq->m_fAnimInterval = 8.0;
+	//pAnimUnq->m_fAnimInterval = 8.0;
+	pAnimUnq->m_fAnimInterval = 6.0;
 
 	// --------- StandAfterBreak2 --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak2];
@@ -664,7 +666,8 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation = true;
 	pAnimUnq->m_fAnimStartTime = 23.0f;
 	pAnimUnq->m_fAnimEndTime = 29.0f;
-	pAnimUnq->m_fUniquePlayPitch = 2.0f; // 固有ピッチ２倍
+	pAnimUnq->m_fAnimInterval = 6.0;
+	//pAnimUnq->m_fUniquePlayPitch = 1.0f; // 固有ピッチ２倍
 
 	// --------- StartRunning --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StartRunning];

@@ -228,6 +228,13 @@ public:
 	// ----- m_pCurAnimPlayInfoの再生にかかる時間を取得
 	float getCurAnimLength(){ return m_pCurAnimPlayInfo->m_fAnimLength; };
 
+	// ----- AnimUniqueInfo （各モーションの固有情報）の情報を取得する
+	inline AnimUniqueInfo* getAnimUnqPointer(PlayerCharacterEntity::AnimationID AnimID )
+	{
+		return &(PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[AnimID]);
+	}
+
+
 	// #### 補助メソッド ####
 	void  PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head );
 	float CurPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }

@@ -66,7 +66,7 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 	else if( pEntity->isMatchPrvState( Break::Instance() ) )
 	{
 		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak);
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak2);
 		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2, 10.0 );
 		pEntity->m_pAnimMgr->setPitch(20.0); // ピッチを調整
 
@@ -372,34 +372,42 @@ void Break::Enter(PlayerCharacterEntity* pEntity)
 
 	// ## アニメーション制御
 
-	if ((pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
-		&& (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoStop))
-	{
-		// ブレーキ状態のタイマオン
-		pEntity->StopWatchOn();
+	// ブレーキ状態のタイマオン
+	pEntity->StopWatchOn();
 
-		// 続いて切返しに入るか、そのまま停止するか、どちらのモーションのを再生するか判定。
-		// 判定ロジックは、RunStateでBreakStateに遷移するときの条件を同じ。
-		if (!(pEntity->MoveInput().isZero()))
-		{ // スティック入力あり。
-		  // 切返し動作に接続するモーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0); // ブレーキのアニメーションを設定
-		}
-		else
-		{ // スティック入力なし。
-		  // そのまま停止するモーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop, 1.0); // ブレーキのアニメーションを設定
-		}
+	// ### 再生ピッチを計算。
+	//   ブレーキ中に、モーション切り替えを行う場合に備え、
+	//   両方のモーションに場合の再生ピッチを計算しメンバ変数に保存しておく
 
-		//   turnに遷移するタイミングでは、既にブレーキアニメーションの再生が終わっている必要がある。
-		//   ブレーキに入る最低速度（＆ブレーキの減速度）から、ブレーキ継続する最小時間を計算し、それ以下にする必要がある。
-		static double BrakingDulation = 0.08;
-		float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength();
-		float PlayPitch = (float)(AnimTotalTime / BrakingDulation);
-		pEntity->m_pAnimMgr->setPitch(PlayPitch);
+	float AnimTotalTime;
+	double BrakingDulation;
+	
+	// BreaktoTurn の再生ピッチの計算
+	// - ブレーキに入る最低速度（＆ブレーキの減速度）から、ブレーキ継続する最小時間を計算し、それ以下にする必要がある。
+	AnimTotalTime = PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[PlayerCharacterEntity::BreaktoTurn].m_fAnimInterval; 	// モーションを適用しないと、getCurAnimLengthで取得できない(´・ω・｀)
+	BrakingDulation = 0.08;
+	m_fAnim_BreaktoTurn_PlayPitch = (float)(AnimTotalTime / BrakingDulation);
 
+	// BreaktoStop2 の再生ピッチの計算
+	AnimTotalTime = PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[PlayerCharacterEntity::BreaktoStop2].m_fAnimInterval; 
+	BrakingDulation = pEntity->Velocity().len() / (60.0f * PlayerCharacterEntity::m_dConfigScaling);
+	m_fAnim_BreaktoStop_PlayPitch = (float)(AnimTotalTime / BrakingDulation);
+
+	// ### モーション再生
+	//   続いて切返しに入るか、そのまま停止するか、どちらのモーションのを再生するか判定。
+	//   判定ロジックは、RunStateでBreakStateに遷移するときの条件を同じ。
+	if (!(pEntity->MoveInput().isZero()))
+	{ // スティック入力あり。
+		// 切返し動作に接続するモーションを再生
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0); // ブレーキのアニメーションを設定
+		pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoTurn_PlayPitch);
 	}
-
+	else
+	{ // スティック入力なし。
+		// そのまま停止するモーションを再生
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0); // ブレーキのアニメーションを設定
+		pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoStop_PlayPitch);
+	}
 
 
 }
@@ -501,21 +509,27 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 
 	// 「切返し接続のブレーキモーション」（BreaktoTurn）と、「停止接続のブレーキモーション」（BreaktoStop）について、
 	// Break動作中に、スティックの状態に応じて、モーションを変更するようにする。
+	// 2018/05/06
+	//   なんとびっくり、この当時から、位相同期シフトを使ってモーション切り替えをやっていたという事実。
+	//   ２時間ぐらい悩んだのはなんだったのかという。おなじところをぐるぐるまわっていた！
+	//   あー、だからAnimUnqInfoにインターバル値が設定してあったんだな。。。
 	if (!(pEntity->MoveInput().isZero()))
 	{ // スティック入力あり。
 		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
 		{
 			// 切返し動作に接続するモーションを再生
-			pEntity->m_pAnimMgr->setAnim( PlayerCharacterEntity::BreaktoTurn, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+			pEntity->m_pAnimMgr->setAnim( PlayerCharacterEntity::BreaktoTurn, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド） ← 
+			pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoTurn_PlayPitch);
 		}
 
 	}
 	else
 	{ // スティック入力なし。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
+		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoStop2)
 		{
 			// そのまま停止するモーションを再生
-			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+			pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoStop_PlayPitch);
 		}
 	}
 

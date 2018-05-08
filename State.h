@@ -134,6 +134,8 @@ private:
 	Break& operator=(const Break&);
 
 	// #### ƒƒ“ƒo ####
+	float m_fAnim_BreaktoTurn_PlayPitch;
+	float m_fAnim_BreaktoStop_PlayPitch;
 
 public:
 
