@@ -483,7 +483,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		//行数
 		int colmun = 10;
 		int width = 15;
-		unsigned int stringColor = GetColor(0, 0, 0);
+		unsigned int stringColor = GetColor(255, 0, 0);
 
 		// m_FrameTimeHistoryを更新
 		int AvFPS = (int)(1.0 / InsMeasureFPS.Update(timeelaps));
@@ -508,7 +508,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// アナログスティック状態とEntityの向きを描画
 		PCEnti.DBG_renderStickTiltAndHeading( Vector2D( 400, 100 ) );
 
-		/*
 		// 現在のアニメーションの再生時間を出力
 		DrawFormatString( 0, width*colmun, 0xffffff, "Current Animation Plya Time :%8f",PCEnti.m_pAnimMgr->CurPlayTime() ); 
 		colmun++;
@@ -517,13 +516,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		DrawFormatString(0, width*colmun, 0xffffff, "Current  Anim Name:%s", PCEnti.m_pAnimMgr->getCurAnimName().c_str());
 		colmun++;
 
-		DrawFormatString(0, width*colmun, 0xffffff, "Previous Anim Name:%s", PCEnti.m_pAnimMgr->getPrvAnimName().c_str());
+		DrawFormatString(0, width*colmun, 0xffffff, "Blend Rato:%f", PCEnti.m_pAnimMgr->DBG_getCurAnimBRate() );
 		colmun++;
 
+		DrawFormatString(0, width*colmun, 0xffffff, "m_AttachIndex:%d", PCEnti.m_pAnimMgr->DBG_getAnimPlayInfoArray_Size());
+		colmun++;
 
 		DrawFormatString(0, width*colmun, 0xffffff, "Pos :%4f, %4f, %4f", PCEnti.Pos().x, PCEnti.Pos().y, PCEnti.Pos().z);
 		colmun++;
-		*/
 
 		/*
 		// キャラクタのローカル座標情報を出力

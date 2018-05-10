@@ -53,11 +53,11 @@ inline double PrecisionTimer::TimeElapsed()
 	m_TimeElapsed = interval * 0.000001 ; // マイクロ秒単位を秒単位に変換
 	m_LastTime = m_CurrentTime;
 
-	//return m_TimeElapsed;
+	return m_TimeElapsed;
 	
 	//return 1.0/60.0;
 
-	return 0.001;
+	//return 0.001;
 }
 
   

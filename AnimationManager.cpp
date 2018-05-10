@@ -11,9 +11,6 @@ int AnimationManager::m_iModelHandleMaster = -1; // m_iModelHandle ‚Ì‰Šú‰»Bi
 AnimationManager::AnimationManager() :
 	m_PlayPitch(20.0),
 	m_dBankAngle( 0.0 ),
-	m_bIsNowBlending( false ),
-	m_dBlendElapsed( 0 ),
-	m_dAnimSwitchTime( 0 ),
 	DBG_m_bPauseOn(false),
 	DBG_m_bBlendPauseOn( false )
 
@@ -106,14 +103,7 @@ AnimationManager::AnimationManager() :
 	}
 #endif
 
-	// m_pCurAnimPlayInfo ‚Æ m_pPrvAnimPlayInfo ‚Ì‰Šú‰»
-	m_pCurAnimPlayInfo = new AnimPlayBackInfo;
-	m_pPrvAnimPlayInfo = new AnimPlayBackInfo;
-	m_pCurAnimPlayInfo->init();
-	m_pPrvAnimPlayInfo->init();
-
-	m_pCurAnimPlayInfo->m_bRemoved = true;
-	m_pPrvAnimPlayInfo->m_bRemoved = true;
+	m_AnimPlayInfoArray.insert(m_AnimPlayInfoArray.begin(), AnimPlayBackInfo(this, (PlayerCharacterEntity::AnimationID)-1, 0.0f));
 
 	// ƒAƒjƒ[ƒVƒ‡ƒ“‚Ì•¨—‰‰ZŠÖ˜A‚Ì‰Šú‰»
 	initAnimPhysics();
@@ -125,11 +115,77 @@ void AnimationManager::CleanUpAnim( AnimPlayBackInfo* pAnimInfo )
 	MV1DetachAnim( m_iModelHandle, pAnimInfo->m_AttachIndex ); // ŒÃ‚¢ƒAƒjƒ[ƒVƒ‡ƒ“‚Ìƒfƒ^ƒbƒ`iƒfƒ^ƒbƒ`‚µ‚È‚¢‚ÆAnimation‚ª¬‚¶‚Á‚Ä•Ï‚È‚±‚Æ‚É‚È‚éj
 };
 
+// ƒRƒ“ƒXƒgƒ‰ƒNƒ^
+AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerCharacterEntity::AnimationID AnimID, float AnimSwitchTime) :
+	m_pAnimationManager(pAnimationManager),
+	m_eAnimID(AnimID),
+	m_AttachIndex(-1),
+	m_MotionTotalTime(0),
+	m_CurPlayTime(0),
+	m_fBlendRate(1.0f),
+	m_iPlayCount(0),
+	m_bPause(false),
+	m_bFinished(false),
+	m_bRemoved(false),
+	m_fAnimSwitchTime(AnimSwitchTime),
+	m_fBlendRemain(AnimSwitchTime)
+{
+	// ƒAƒjƒ[ƒVƒ‡ƒ“ŒÅ—Lî•ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğæ“¾
+	AnimUniqueInfo* pAnimUnq = getAnimUnqPointer();
+
+	// iMotionID‚É]‚¢jm_AttachIndex ‚Ìİ’è
+	int CurAttachedMotion = pAnimUnq->m_CurAttachedMotion;
+	if (CurAttachedMotion >= 0)
+	{
+		m_AttachIndex = MV1AttachAnim(m_pAnimationManager->m_iModelHandle, CurAttachedMotion, -1, FALSE);
+	}
+
+	// m_MotionTotalTime ‚ğæ“¾
+	if (m_AttachIndex == -1)
+	{ // ƒAƒjƒ[ƒVƒ‡ƒ“–¢İ’è
+		m_MotionTotalTime = 0.0f;
+	}
+	else if (!(pAnimUnq->m_bCutPartAnimation))
+	{ // ƒ‚[ƒVƒ‡ƒ“Øo‚µ OFF
+		m_MotionTotalTime = MV1GetAttachAnimTotalTime(m_pAnimationManager->m_iModelHandle, m_AttachIndex);
+		m_CurPlayTime = pAnimUnq->m_fAnimStartTime;
+		m_fAnimLength = m_MotionTotalTime - pAnimUnq->m_fAnimStartTime;
+	}
+	else
+	{ // ƒ‚[ƒVƒ‡ƒ“Øo‚µ ON
+	  // PlaySub ‚Ìd‘g‚İ‚©‚çA‚±‚ê‚ÅØo‚µÀŒ»‚Å‚«‚é‚Í‚¸
+		m_CurPlayTime = pAnimUnq->m_fAnimStartTime;
+		m_MotionTotalTime = pAnimUnq->m_fAnimEndTime;
+		m_fAnimLength = pAnimUnq->m_fAnimEndTime - pAnimUnq->m_fAnimStartTime;
+	}
+
+};
+
+// ƒfƒXƒgƒ‰ƒNƒ^
+AnimPlayBackInfo::~AnimPlayBackInfo()
+{
+	MV1DetachAnim(m_pAnimationManager->m_iModelHandle, m_AttachIndex); // ŒÃ‚¢ƒAƒjƒ[ƒVƒ‡ƒ“‚Ìƒfƒ^ƒbƒ`iƒfƒ^ƒbƒ`‚µ‚È‚¢‚ÆAnimation‚ª¬‚¶‚Á‚Ä•Ï‚È‚±‚Æ‚É‚È‚éj
+}
+
+void AnimPlayBackInfo::ReAttach()
+{
+	// ƒAƒjƒ[ƒVƒ‡ƒ“ŒÅ—Lî•ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğæ“¾
+	AnimUniqueInfo* pAnimUnq = getAnimUnqPointer();
+
+	// iMotionID‚É]‚¢jm_AttachIndex ‚Ìİ’è
+	int CurAttachedMotion = pAnimUnq->m_CurAttachedMotion;
+	if (CurAttachedMotion >= 0)
+	{
+		m_AttachIndex = MV1AttachAnim(m_pAnimationManager->m_iModelHandle, CurAttachedMotion, -1, FALSE);
+	}
+}
+
+/*
+// —pÏ‚İ
 // ˆø”‚ÌpAnimInfo‚ğw’è‚³‚ê‚½ƒAƒjƒ[ƒVƒ‡ƒ“‚Å‰Šú‰»‚·‚é
 void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, PlayerCharacterEntity::AnimationID AnimID )
 {
 	// \‘¢‘Ì‚ğÄ—˜—p‚µ‚ÄAV‚½‚Éİ’è‚³‚ê‚½ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌƒRƒ“ƒeƒi‚ğì¬‚·‚éB
-	pAnimInfo->init(); // ‰Šú‰»
 	pAnimInfo->m_eAnimID = AnimID; // AnimID‚ğ‹L‰¯
 	 
 	// ƒAƒjƒ[ƒVƒ‡ƒ“ŒÅ—Lî•ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğæ“¾
@@ -161,6 +217,7 @@ void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, Play
 		pAnimInfo->m_fAnimLength     = pAnimUnq->m_fAnimEndTime - pAnimUnq->m_fAnimStartTime;
 	}
 };
+*/
 
 void AnimationManager::setAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, bool SyncToPrv, float StartFrame )
 {
@@ -180,65 +237,38 @@ void AnimationManager::setAnimMain(
 	bool SyncToPrv,
 	float StartFrame )
 {
+	m_AnimPlayInfoArray[0].m_bPause = StopPrvAnim; // ‘O‚Ìƒ‚[ƒVƒ‡ƒ“‚ÌÄ¶‚ğ’â~B
 
-	// ƒuƒŒƒ“ƒh’†‚Ìê‡‚ÍƒuƒŒƒ“ƒhˆ—‚ğ‰ğœ‚·‚é
-	if( m_bIsNowBlending )
-	{ 
-		m_pCurAnimPlayInfo->m_fBlendRate = 1.0; // ‹­§“I‚ÉƒAƒjƒ[ƒVƒ‡ƒ“‚ğØ‘Ö
-		CleanUpAnim( m_pPrvAnimPlayInfo ); // Prv‚ÌƒAƒjƒ[ƒVƒ‡ƒ“‚ÌŒãˆ—‚ğs‚¤
-		m_bIsNowBlending = false;          // ƒuƒŒƒ“ƒh‚Í‰ğœ‚³‚ê‚½
-	}
-	
-	// ƒuƒŒƒ“ƒhw’è‚Ìê‡iAnimSwitchTime>0j
-	if( AnimSwitchTime > 0 )
-	{
-		m_bIsNowBlending  = true;
-		m_dBlendElapsed   = 0;
-		m_dAnimSwitchTime = AnimSwitchTime;
+	// ƒuƒŒƒ“ƒhw’è—L–³‚É‚©‚©‚í‚ç‚¸Aæ“ª‚ÉV‚µ‚¢ƒAƒjƒ[ƒVƒ‡ƒ“\‘¢‘Ì‚ğ‹²‚ñ‚ÅAˆø”‚Ìƒpƒ‰ƒ[ƒ^‚ğ‚Ô‚¿‚ŞB
+	m_AnimPlayInfoArray.insert(m_AnimPlayInfoArray.begin(), AnimPlayBackInfo( this, AnimID, (float)AnimSwitchTime ));
 
-		// ƒtƒ‰ƒO‚ª—§‚Á‚Ä‚¢‚ê‚Î‘O‚ÌƒAƒjƒ[ƒVƒ‡ƒ“Ä¶‚ğ’â~iÃ~j‚·‚é
-		m_pCurAnimPlayInfo->m_bPause = StopPrvAnim;
-
-		// Œ»İİ’è‚³‚ê‚Ä‚¢‚éƒAƒjƒ[ƒVƒ‡ƒ“‚ğm_pPrvAnimPlayInfo‚ÉˆÚ‚·
-		swap( m_pCurAnimPlayInfo, m_pPrvAnimPlayInfo );
-
-	}
-	else
-	{
-		// Œ»İİ’è‚³‚ê‚Ä‚¢‚éƒAƒjƒ[ƒVƒ‡ƒ“‚ğm_pPrvAnimPlayInfo‚ÉˆÚ‚µAŒãˆ—‚ğs‚¤
-		swap( m_pCurAnimPlayInfo, m_pPrvAnimPlayInfo );
-		CleanUpAnim( m_pPrvAnimPlayInfo );
-	}
+	m_AnimPlayInfoArray[0].ReAttach();
 
 	// ################## ƒ‚[ƒVƒ‡ƒ“‚Ìİ’è #######################
-	
-	// m_pCurAnimPlayInfo ‚ğƒZƒbƒg‚³‚ê‚½ƒAƒjƒ[ƒVƒ‡ƒ“‚Å‰Šú‰»
-	InitAnimPlayInfoAsAnim( m_pCurAnimPlayInfo, AnimID );
 
+	// ##### ƒAƒjƒ[ƒVƒ‡ƒ“‚ğu“¯Šúv‚³‚¹‚é #####
 	if( SyncToPrv )
 	{
-		// ##### ƒAƒjƒ[ƒVƒ‡ƒ“‚ğu“¯Šúv‚³‚¹‚é #####
 		// ƒAƒjƒ[ƒVƒ‡ƒ“‚ğØ‘Ö‚¦‚éAuˆÊ‘Šv‚ğˆø‚«Œp‚¬‚½‚¢‚Æ‚¢‚¤ê‡‚ª‚ ‚éB
 		// —á‚¦‚ÎA•à‚«¨‘–‚è‚ÉØ‚è‘Ö‚¦‚½A‘«‚ğˆê”Ô‘O‚É“Ë‚«o‚µ‚Ä‚¢‚é‚ÉØ‘Ö‚¦‚½‚çA
 		// •à‚«‚ÌƒAƒjƒ[ƒVƒ‡ƒ“‚Å‚à“¯‚¶‚æ‚¤‚É‘«‚ğˆê”Ô‘O‚É“Ë‚«o‚µ‚½ó‘Ô‚É‚µ‚½‚¢B
 
-		float CurInterval = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fAnimInterval;
-		float PrvInterval = m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_fAnimInterval;
-		float CurAminStart = m_pCurAnimPlayInfo->getAnimUnqPointer()->m_fAnimStartTime;
-		float PrvAminStart = m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_fAnimStartTime;
+		float CurInterval = m_AnimPlayInfoArray[0].getAnimUnqPointer()->m_fAnimInterval;
+		float PrvInterval = m_AnimPlayInfoArray[1].getAnimUnqPointer()->m_fAnimInterval;
+		float CurAminStart = m_AnimPlayInfoArray[0].getAnimUnqPointer()->m_fAnimStartTime;
+		float PrvAminStart = m_AnimPlayInfoArray[1].getAnimUnqPointer()->m_fAnimStartTime;
 		
 		assert( (CurInterval>0) && (PrvInterval>0) && "“¯Šú“IƒVƒtƒg‚·‚é‚Ç‚¿‚ç‚©‚Ìƒ‚[ƒVƒ‡ƒ“‚Ìm_fAnimInterval‚ª–¢İ’è." );
 		float scale = CurInterval/PrvInterval;
-
-		m_pCurAnimPlayInfo->m_CurPlayTime 
-			= scale * (m_pPrvAnimPlayInfo->m_CurPlayTime - PrvAminStart) + CurAminStart;
+		m_AnimPlayInfoArray[0].m_CurPlayTime = scale * (m_AnimPlayInfoArray[1].m_CurPlayTime - PrvAminStart) + CurAminStart;
 
 	}
 
+	// ##### ƒ‚[ƒVƒ‡ƒ“‚ÌŠJnˆÊ’u‚ğw’è‚·‚é #####
 	if (StartFrame >= 0.0)
 	{
 		// ŠJn‚ğ StartFrame ‚É•ÏX
-		m_pCurAnimPlayInfo->m_CurPlayTime = StartFrame;
+		m_AnimPlayInfoArray[0].m_CurPlayTime = StartFrame;
 	}
 
 
@@ -246,7 +276,7 @@ void AnimationManager::setAnimMain(
 
 void AnimationManager::Play( PlayerCharacterEntity* pEntity )
 {
-	// ################## ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌÄ¶ #######################
+	// ######## ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌÄ¶ ########
 
 	// ¡‰ñ‚ÌÄ¶ƒ^ƒCƒ~ƒ“ƒO‚ğŒvZ‚·‚é
 	double   telaps    = pEntity->TimeElaps();
@@ -261,33 +291,32 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	// —\–ñƒAƒjƒ[ƒVƒ‡ƒ“‚ÌÄ¶‰Â”Û‚ğŠm”F
 	PlayReservedAnim();
 
-	// ################## ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌƒuƒŒƒ“ƒhˆ— #######################
+	// ######## ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌƒuƒŒƒ“ƒhˆ— ########
 
-	// ƒAƒjƒ[ƒVƒ‡ƒ“ƒuƒŒƒ“ƒh’†‚©H
-	if( m_bIsNowBlending )
+	// 2018/05/08 ‘½dƒuƒŒƒ“ƒh‘Î‰
+	vector<AnimPlayBackInfo>::iterator it = m_AnimPlayInfoArray.begin();
+	double OverBlendRate = 1.0; // Œã‘±ƒ‚[ƒVƒ‡ƒ“‚Éˆø‚«Œp‚ª‚ê‚éƒuƒŒƒ“ƒh—¦
+
+	while (it != m_AnimPlayInfoArray.end())
 	{
-		// m_dBlendElapsed ‚ğXVim_PlayPitch’l ‚Íl—¶j
-		// DBG 
-		if( !DBG_m_bBlendPauseOn )
-		{
-			m_dBlendElapsed += m_PlayPitch * (float)TimeElaps;
-		}
+		it->m_fBlendRemain -= m_PlayPitch * (float)TimeElaps; // ƒuƒŒƒ“ƒhc‚èŠÔ‚ğXV
 
-		// ‚à‚µAm_dAnimSwitchTime < m_dBlendElapsed ‚Ìê‡‚ÍACur‚ÌƒuƒŒƒ“ƒh’l‚ğ1‚É‚µAƒuƒŒƒ“ƒhˆ—‚ğI—¹‚·‚é
-		if( m_dAnimSwitchTime < m_dBlendElapsed )
+		if (it->m_fBlendRemain > 0)
 		{
-			m_pCurAnimPlayInfo->m_fBlendRate = 1.0;
-			CleanUpAnim( m_pPrvAnimPlayInfo ); //Prv‚ÌƒAƒjƒ[ƒVƒ‡ƒ“‚ÌŒãˆ—‚ğs‚¤
-			m_bIsNowBlending = false;
+			// ƒuƒŒƒ“ƒh—¦‚ğŒvZ‚µ‚ÄXV
+			float BRate = it->m_fBlendRemain / it->m_fAnimSwitchTime;
+			it->m_fBlendRate = (1.0f-BRate) * OverBlendRate; // ƒ‚[ƒVƒ‡ƒ“‚ÌƒuƒŒƒ“ƒh—¦‚ÍAOverBlendRateˆÈã‚É‚È‚ç‚È‚¢B
+			OverBlendRate *= BRate; // ƒuƒŒƒ“ƒh—¦‚ÌŒã‘±‚Ìƒ‚[ƒVƒ‡ƒ“‚Ö‚Ìˆø‚«Œp‚¬B
 		}
 		else
 		{
-			// m_dAnimSwitchTime ‚Æ m_dBlendElapsed ‚©‚çAƒuƒŒƒ“ƒh—¦‚ğŒvZ
-			float BRate = (float)(m_dBlendElapsed/m_dAnimSwitchTime);
+			it->m_fBlendRate = OverBlendRate;
 
-			m_pCurAnimPlayInfo->m_fBlendRate = BRate;
-			m_pPrvAnimPlayInfo->m_fBlendRate = (float)(1.0 - BRate);
+			it++;
+			m_AnimPlayInfoArray.erase(it, m_AnimPlayInfoArray.end()); // ˆÈ~‚Ìƒ‚[ƒVƒ‡ƒ“íœ
+			break; // ƒ‹[ƒv‚©‚ç”²‚¯‚é
 		}
+		it++;
 	}
 
 	// DBG 
@@ -301,16 +330,22 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 		time_elaps = TimeElaps;
 	}
 
-	// Ä¶—v”Û‚Í m_bRemoved ‚Ì’†‚ğŒ©‚Ä”»’f
-	if( !m_pCurAnimPlayInfo->m_bRemoved ) PlayOneAnim( time_elaps, Pos, Head, m_pCurAnimPlayInfo );
-	if( !m_pPrvAnimPlayInfo->m_bRemoved ) PlayOneAnim( time_elaps, Pos, Head, m_pPrvAnimPlayInfo );
-	
+	// ######## ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌÄ¶ˆ— ########
+
+	// ”z—ñ‚Ì’†g‚É‚ ‚éƒAƒjƒ[ƒVƒ‡ƒ“‚ğ‘S‚ÄÄ¶
+	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
+	{
+		PlayOneAnim(time_elaps, Pos, Head, &m_AnimPlayInfoArray[i]); 
+	}
 
 	// ƒ‚ƒfƒ‹ƒZƒ“ƒ^‚Ö‚Ìƒ‚[ƒVƒ‡ƒ“ˆÊ’u‚Ì•â³ƒxƒNƒgƒ‹‚ğA
 	// PlayOneAnim‚ÅŒvZ‚³‚ê‚½AnimPlayBackInfo.m_vCorrectionVec‚©‚çŒvZ
 	
 	// #### ƒZƒ“ƒ^[ˆÊ’u‚ªŒÅ’è‚É‚È‚é‚æ‚¤‚ÉAƒ‚ƒfƒ‹i•`‰æjˆÊ’u‚ğ•â³‚·‚éƒxƒNƒgƒ‹ CorrectionVec ‚ğŒvZ‚·‚é
 	
+	// ‘½dƒuƒŒƒ“ƒh‘Î‰‚É”º‚¢AˆÊ’u•â³‹@”\‚ÍƒTƒ|[ƒgŠO‚Æ‚·‚éB
+
+	/*
 	// Cur‘¤‚ÌˆÊ’u•â³î•ñæ“¾
 	Vector3D CurCorrectVec = m_pCurAnimPlayInfo->m_vCorrectionVec;
 	float    CurBlendRate  = m_pCurAnimPlayInfo->m_fBlendRate;
@@ -322,10 +357,12 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	
 	// ƒuƒŒƒ“ƒhl—¶‚µ‚½ÅIˆÊ’u•â³ƒxƒNƒgƒ‹‚ğŒvZ
 	Vector3D CorrectionVec = ( CurBlendRate*CurCorrectVec + PrvBlendRate*PrvCorrectVec ) / (CurBlendRate+PrvBlendRate);
+	*/
 
 	// #### ˆÊ’u•â³‚ğƒZƒ“ƒ^[ƒtƒŒ[ƒ€‚ÌÀ•W•ÏŠ·s—ñ‚É”½‰f
 
 	// ˆÊ’u•â³—p‚ÌÀ•W•ÏŠ·s—ñ‚ğ¶¬
+	Vector3D CorrectionVec(0, 0, 0);
 	MATRIX TransMac = MGetTranslate(CorrectionVec.toVECTOR());
 
 	// p¨ŒX‚«iƒoƒ‹ƒNŠpj‚Ìİ’è
@@ -449,7 +486,7 @@ void AnimationManager::ReserveAnim( PlayerCharacterEntity::AnimationID AnimID, d
 void AnimationManager::PlayReservedAnim()
 {
 	// Œ»sƒAƒjƒ[ƒVƒ‡ƒ“‚ÌÄ¶‚ªŠ®—¹‚µ‚½‚©H
-	if( (!m_qAnimReservationQueue.empty()) && m_pCurAnimPlayInfo->m_bFinished )
+	if( (!m_qAnimReservationQueue.empty()) && m_AnimPlayInfoArray[0].m_bFinished )
 	{
 		// ˆê”ÔÅ‰‚É—\–ñ‚³‚ê‚½ƒAƒjƒ[ƒVƒ‡ƒ“‚ğÄ¶İ’è
 		ArgumentOfSetAnim Arg = m_qAnimReservationQueue.front();
@@ -650,14 +687,14 @@ void AnimationManager::DBG_RenewModel( int ReneModelHandle )
 	// m_pCurAnimPlayInfo->m_AttachIndex
 	// m_pPrvAnimPlayInfo->m_AttachIndex
 
-	AnimPlayBackInfo* AnimInfoList[2]={ m_pCurAnimPlayInfo, m_pPrvAnimPlayInfo };
+	//AnimPlayBackInfo* AnimInfoList[2]={ m_pCurAnimPlayInfo, m_pPrvAnimPlayInfo };
 
 	// ŒÃ‚¢ƒ‚ƒfƒ‹‚ÉƒAƒ^ƒbƒ`‚³‚ê‚½ƒAƒjƒ[ƒVƒ‡ƒ“‚ğˆê“xƒfƒ^ƒbƒ`
-	for( int i=0; i<2; i++ )
+	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
 	{
-		if(!(AnimInfoList[i]->m_bRemoved))
+		if (!(m_AnimPlayInfoArray[i].m_bRemoved))
 		{
-			MV1DetachAnim( m_iModelHandle, AnimInfoList[i]->m_AttachIndex ); // ŒÃ‚¢ƒAƒjƒ[ƒVƒ‡ƒ“‚Ìƒfƒ^ƒbƒ`iƒfƒ^ƒbƒ`‚µ‚È‚¢‚ÆAnimation‚ª¬‚¶‚Á‚Ä•Ï‚È‚±‚Æ‚É‚È‚éj
+			MV1DetachAnim(m_iModelHandle, m_AnimPlayInfoArray[i].m_AttachIndex); // ŒÃ‚¢ƒAƒjƒ[ƒVƒ‡ƒ“‚Ìƒfƒ^ƒbƒ`iƒfƒ^ƒbƒ`‚µ‚È‚¢‚ÆAnimation‚ª¬‚¶‚Á‚Ä•Ï‚È‚±‚Æ‚É‚È‚éj
 		}
 	}
 
@@ -668,14 +705,14 @@ void AnimationManager::DBG_RenewModel( int ReneModelHandle )
 
 	// ƒAƒjƒ[ƒVƒ‡ƒ“‚ğV‚µ‚¢ƒ‚ƒfƒ‹‚ÉÄ“xƒAƒ^ƒbƒ`
 	// AnimPlayInfo->m_AttachIndex ‚ğXV
-	for( int i=0; i<2; i++ )
+	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
 	{
-		if(!(AnimInfoList[i]->m_bRemoved))
+		if (!(m_AnimPlayInfoArray[i].m_bRemoved))
 		{
-			int CurAttachedMotion = AnimInfoList[i]->getAnimUnqPointer()->m_CurAttachedMotion;
-			if( CurAttachedMotion>=0 )
+			int CurAttachedMotion = m_AnimPlayInfoArray[i].getAnimUnqPointer()->m_CurAttachedMotion;
+			if (CurAttachedMotion >= 0)
 			{
-				AnimInfoList[i]->m_AttachIndex = MV1AttachAnim( m_iModelHandle, CurAttachedMotion, -1, FALSE ) ;
+				m_AnimPlayInfoArray[i].m_AttachIndex = MV1AttachAnim(m_iModelHandle, CurAttachedMotion, -1, FALSE);
 			}
 		}
 	}

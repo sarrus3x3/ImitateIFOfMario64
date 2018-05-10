@@ -66,52 +66,6 @@ struct AnimUniqueInfo
 
 };
 
-// #### アニメーション再生情報
-// アニメーション再生状態に従い変化するもの。
-// ex. 現在の再生フレーム、再生時間、再生回数等。
-struct AnimPlayBackInfo
-{
-	// 再生アニメーションのアニメーションID
-	PlayerCharacterEntity::AnimationID m_eAnimID; 
-
-	// モーションのアタッチインデックス（ MV1AttachAnim のリターン値 ）
-	int   m_AttachIndex;       
-
-	// アニメーション再生情報
-	float m_MotionTotalTime;   // モーションの総再生時間
-		// * アニメーション切出しONの場合は、AnimUniqueInfo.m_fAnimEndTimeの値が設定される。
-		//   切出しアニメーションの再生時間はm_fAnimLengthに格納する
-	
-	float m_CurPlayTime;       // 現在の再生時間
-	float m_fBlendRate;        // アニメーションのブレンド率（ 0.0 ～ 1.0 の間 ）
-	int   m_iPlayCount;        // （setされてからの）アニメーションの再生回数
-	bool  m_bPause;            // アニメーション停止（静止）フラグ
-	bool  m_bFinished;         // アニメーション終了フラグ アニメーションが総再生時間まで再生された場合など。ループするアニメーションの場合は ON にならない。
-	bool  m_bRemoved;          // アニメーション破棄フラグ ONならアニメーション再生しない。アニメーションをデタッチするタイミングで ON にしている
-	Vector3D m_vCorrectionVec; // m_CurAttachedMotion ON の場合のモーション位置の補正ベクトル（PlayOneAnimで計算され、PlaySubでブレンド考慮して実際の位置補正を実行する。）
-	float m_fAnimLength;       // このアニメーションの再生にかかる時間
-
-	// 初期化メソッド
-	void init()
-	{
-		m_eAnimID = (PlayerCharacterEntity::AnimationID)-1;
-		m_AttachIndex     = -1;
-		m_MotionTotalTime = 0;
-		m_CurPlayTime     = 0;
-		m_fBlendRate      = 1.0;
-		m_iPlayCount      = 0;
-		m_bPause          = false;
-		m_bFinished       = false;
-		m_bRemoved        = false;
-	}
-
-	inline AnimUniqueInfo* getAnimUnqPointer()
-	{
-		return &(PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[m_eAnimID]);
-	}
-
-};
-
 // #### AnimationManager::setAnim の引数を構造体にしたもの
 // アニメーションの予約管理に使用する
 struct ArgumentOfSetAnim
@@ -128,9 +82,56 @@ struct ArgumentOfSetAnim
 		m_dAnimSwitchTime = AnimSwitchTime;
 		m_bStopPrvAnim    = StopPrvAnim;
 		m_fStartFrame     = StartFrame;
-	}
+	};
 
 };
+
+// #### アニメーション再生管理構造体
+// アニメーション再生状態に従い変化するもの。
+// ex. 現在の再生フレーム、再生時間、再生回数等。
+struct AnimPlayBackInfo
+{
+	// 親になるAnimationManagerのポインタ
+	// - m_iModelHandle をメソッド内で使用するため。コンストラクタで引数として渡す。
+	AnimationManager* m_pAnimationManager;
+
+	// 再生アニメーションのアニメーションID
+	PlayerCharacterEntity::AnimationID m_eAnimID;
+
+	// モーションのアタッチインデックス（ MV1AttachAnim のリターン値 ）
+	int   m_AttachIndex;
+
+	// アニメーション再生情報
+	float m_MotionTotalTime;   // モーションの総再生時間 - アニメーション切出しONの場合は、AnimUniqueInfo.m_fAnimEndTimeの値が設定される。切出しアニメーションの再生時間はm_fAnimLengthに格納する
+	float m_CurPlayTime;       // 現在の再生時間
+	float m_fBlendRate;        // アニメーションのブレンド率（ 0.0 ～ 1.0 の間 ）
+	int   m_iPlayCount;        // （setされてからの）アニメーションの再生回数
+	bool  m_bPause;            // アニメーション停止（静止）フラグ
+	bool  m_bFinished;         // アニメーション終了フラグ アニメーションが総再生時間まで再生された場合など。ループするアニメーションの場合は ON にならない。
+	bool  m_bRemoved;          // アニメーション破棄フラグ ONならアニメーション再生しない。アニメーションをデタッチするタイミングで ON にしている
+	Vector3D m_vCorrectionVec; // m_CurAttachedMotion ON の場合のモーション位置の補正ベクトル（PlayOneAnimで計算され、PlaySubでブレンド考慮して実際の位置補正を実行する。）
+	float m_fAnimLength;       // このアニメーションの再生にかかる時間
+
+							   // ブレンド制御に使用
+	float m_fBlendRemain;      // ブレンドの残り時間。0になった時に完全にこのアニメーションに遷移完了する。ブレンドなしの場合=0
+	float m_fAnimSwitchTime;   // アニメーション切替の設定時間
+
+	inline AnimUniqueInfo* getAnimUnqPointer()
+	{
+		return &(PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[m_eAnimID]);
+	};
+
+	// コンストラクタ
+	AnimPlayBackInfo(AnimationManager* pAnimationManager, PlayerCharacterEntity::AnimationID AnimID, float AnimSwitchTime);
+
+	// デストラクタ
+	~AnimPlayBackInfo();
+
+	// reatach
+	void ReAttach();
+
+};
+
 
 // ########################################################################
 // ######################## AnimationManager Class ########################
@@ -147,20 +148,19 @@ private:
 
 	// #### （現在の）アニメーションに関する情報、属性、設定 等 ####
 	// モデル情報
+public:
 	int   m_iModelHandle;              // MMDモデルのハンドル ※ AnimationManager のインスタンスを複数生成に対応するため、static化（暫定対処）
+
+private:
 	int   m_iCenterFrameIndex;         // 「センター」フレームのフレーム番号（ MV1SearchFrame のリターン値 ）
 
 	// 再生ピッチ（再生速度）
 	float m_PlayPitch;         // 再生ピッチ（再生速度）
 
-	// アニメーション再生情報を格納
-	AnimPlayBackInfo* m_pCurAnimPlayInfo; // 現在再生中のアニメーション
-	AnimPlayBackInfo* m_pPrvAnimPlayInfo; // ひとつ前に再生したアニメーション ※アニメーション切替中は両方がブレンドされて再生される
-
-	// アニメーションブレンド（アニメーション切替を滑らかにする）関連
-	bool   m_bIsNowBlending;    // 今がブレンド中かのフラグ
-	double m_dBlendElapsed;     // ブレンド開始からの経過時間
-	double m_dAnimSwitchTime;   // アニメーション切替の設定時間
+	//  アニメーション再生管理構造体配列
+	// - ブレンドされるアニメーションの配列。後ろの要素ほど新しいアニメーションで、最後尾が最新のアニメーションになる。
+	// やっぱりやっぱり、先頭が最新になるように。。。
+	vector<AnimPlayBackInfo> m_AnimPlayInfoArray;
 
 	// アニメーション予約機能に関する
 	queue<ArgumentOfSetAnim> m_qAnimReservationQueue;
@@ -172,7 +172,7 @@ private:
 	// #### 補助メソッド ####
 	void PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Head, AnimPlayBackInfo* pPlayAnim ); // Entity情報を参照させないで直接条件を指定してAnimationを描画する。
 	void CleanUpAnim( AnimPlayBackInfo* pAnimInfo ); // アニメーションの後処理を行う
-	void InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, PlayerCharacterEntity::AnimationID AnimID ); // 引数のpAnimInfoを指定されたアニメーションで初期化する
+	//void InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, PlayerCharacterEntity::AnimationID AnimID ); // 引数のpAnimInfoを指定されたアニメーションで初期化する
 	void PlayReservedAnim(); // CurAnimが再生終了したかをチェックし、再生終了していれば予約されたアニメーションを再生設定する。
 	void setAnimMain( 
 		PlayerCharacterEntity::AnimationID, 
@@ -215,18 +215,18 @@ public:
 	void DiscardReservedAnim(){ queue<ArgumentOfSetAnim>().swap(m_qAnimReservationQueue); };
 
 	// ----- m_pCurAnimPlayInfoのAnimationIDを取得
-	PlayerCharacterEntity::AnimationID getCurAnimID() { return m_pCurAnimPlayInfo->m_eAnimID; };
+	PlayerCharacterEntity::AnimationID getCurAnimID() { return m_AnimPlayInfoArray[0].m_eAnimID; };
 
 	// ----- m_pCurAnimPlayInfoのアニメーション名を取得
-	string getCurAnimName(){ return m_pCurAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };
+	string getCurAnimName(){ return m_AnimPlayInfoArray[0].getAnimUnqPointer()->m_sAnimName; };
 
 	// ----- m_pPrvAnimPlayInfoのアニメーション名を取得
 	// これって、m_pPrvAnimPlayInfo がセットされていなかった場合の動作ってどうなるんだ？
 	// ま、大丈夫だろ。
-	string getPrvAnimName() { return m_pPrvAnimPlayInfo->getAnimUnqPointer()->m_sAnimName; };
+	string getPrvAnimName() { return "Now this method is not supported..."; };
 
 	// ----- m_pCurAnimPlayInfoの再生にかかる時間を取得
-	float getCurAnimLength(){ return m_pCurAnimPlayInfo->m_fAnimLength; };
+	float getCurAnimLength(){ return m_AnimPlayInfoArray[0].m_fAnimLength; };
 
 	// ----- AnimUniqueInfo （各モーションの固有情報）の情報を取得する
 	inline AnimUniqueInfo* getAnimUnqPointer(PlayerCharacterEntity::AnimationID AnimID )
@@ -237,9 +237,9 @@ public:
 
 	// #### 補助メソッド ####
 	void  PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head );
-	float CurPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }
+	float CurPlayTime(){ return m_AnimPlayInfoArray[0].m_CurPlayTime; }
 	void  DrawAllow3D( Vector3D cnt, Vector3D heading ); // 矢印を描画
-	float getMotionTotalTime(){ return m_pCurAnimPlayInfo->m_MotionTotalTime; }
+	float getMotionTotalTime(){ return m_AnimPlayInfoArray[0].m_MotionTotalTime; }
 	
 // ############ 物理演算（髪の毛を揺らすとか）関連 ############
 public:
@@ -299,7 +299,7 @@ public:
 
 	bool DBG_getPauseState(){ return DBG_m_bPauseOn; }
     Vector3D DBG_RenderCenterFramePos(); // 「センター」フレームの座標位置を描画する、ついでに座標位置を返却する。
-	void DBG_setCurPlayTimeOfCurAnim( float time ){ m_pCurAnimPlayInfo->m_CurPlayTime = time; };
+	void DBG_setCurPlayTimeOfCurAnim( float time ){ m_AnimPlayInfoArray[0].m_CurPlayTime = time; };
 	int  DBG_getModelHandle(){ return m_iModelHandle; };
 
 	int  DGB_m_iHairFrameIndex;    // 髪フレーム
@@ -313,11 +313,11 @@ public:
 	int DBG_m_iModelHandle_Physics;  // 物理演算ありで読み込んだモデルのハンドル
 	int DBG_m_iModelHandle_HideHair; // 髪の毛削除を削除したモデルのハンドル
 
-	float DBG_getCurAnimBRate(){ return m_pCurAnimPlayInfo->m_fBlendRate; };
-	float DBG_getPrvAnimBRate(){ return m_pPrvAnimPlayInfo->m_fBlendRate; };
+	float DBG_getCurAnimBRate(){ return m_AnimPlayInfoArray[0].m_fBlendRate; };
 
-	float DBG_getCurAnimPlayTime(){ return m_pCurAnimPlayInfo->m_CurPlayTime; }; 
-	float DBG_getPrvAnimPlayTime(){ return m_pPrvAnimPlayInfo->m_CurPlayTime; }; 
+	int DBG_getAnimPlayInfoArray_Size() { return m_AnimPlayInfoArray[0].m_AttachIndex; };
+
+	float DBG_getCurAnimPlayTime(){ return m_AnimPlayInfoArray[0].m_CurPlayTime; };
 
 	bool DBG_m_bBlendPauseOn; // アニメーションブレンディングの一時停止
 
