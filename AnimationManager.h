@@ -125,10 +125,13 @@ struct AnimPlayBackInfo
 	AnimPlayBackInfo(AnimationManager* pAnimationManager, PlayerCharacterEntity::AnimationID AnimID, float AnimSwitchTime);
 
 	// デストラクタ
-	~AnimPlayBackInfo();
+	//~AnimPlayBackInfo();
 
-	// reatach
-	void ReAttach();
+	// アニメーションのアタッチ処理
+	void AttachAni();
+
+	// アニメーションのデタッチ処理
+	void DetachAni();
 
 };
 

@@ -104,6 +104,7 @@ AnimationManager::AnimationManager() :
 #endif
 
 	m_AnimPlayInfoArray.insert(m_AnimPlayInfoArray.begin(), AnimPlayBackInfo(this, (PlayerCharacterEntity::AnimationID)-1, 0.0f));
+	m_AnimPlayInfoArray[0].AttachAni();
 
 	// アニメーションの物理演算関連の初期化
 	initAnimPhysics();
@@ -130,6 +131,12 @@ AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerC
 	m_fAnimSwitchTime(AnimSwitchTime),
 	m_fBlendRemain(AnimSwitchTime)
 {
+
+
+};
+
+void AnimPlayBackInfo::AttachAni()
+{
 	// アニメーション固有情報へのポインタを取得
 	AnimUniqueInfo* pAnimUnq = getAnimUnqPointer();
 
@@ -139,7 +146,6 @@ AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerC
 	{
 		m_AttachIndex = MV1AttachAnim(m_pAnimationManager->m_iModelHandle, CurAttachedMotion, -1, FALSE);
 	}
-
 	// m_MotionTotalTime を取得
 	if (m_AttachIndex == -1)
 	{ // アニメーション未設定
@@ -158,66 +164,13 @@ AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerC
 		m_MotionTotalTime = pAnimUnq->m_fAnimEndTime;
 		m_fAnimLength = pAnimUnq->m_fAnimEndTime - pAnimUnq->m_fAnimStartTime;
 	}
+}
 
-};
-
-// デストラクタ
-AnimPlayBackInfo::~AnimPlayBackInfo()
+void AnimPlayBackInfo::DetachAni()
 {
 	MV1DetachAnim(m_pAnimationManager->m_iModelHandle, m_AttachIndex); // 古いアニメーションのデタッチ（デタッチしないとAnimationが混じって変なことになる）
 }
 
-void AnimPlayBackInfo::ReAttach()
-{
-	// アニメーション固有情報へのポインタを取得
-	AnimUniqueInfo* pAnimUnq = getAnimUnqPointer();
-
-	// （MotionIDに従い）m_AttachIndex の設定
-	int CurAttachedMotion = pAnimUnq->m_CurAttachedMotion;
-	if (CurAttachedMotion >= 0)
-	{
-		m_AttachIndex = MV1AttachAnim(m_pAnimationManager->m_iModelHandle, CurAttachedMotion, -1, FALSE);
-	}
-}
-
-/*
-// 用済み
-// 引数のpAnimInfoを指定されたアニメーションで初期化する
-void AnimationManager::InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, PlayerCharacterEntity::AnimationID AnimID )
-{
-	// 構造体を再利用して、新たに設定されたアニメーションのコンテナを作成する。
-	pAnimInfo->m_eAnimID = AnimID; // AnimIDを記憶
-	 
-	// アニメーション固有情報へのポインタを取得
-	AnimUniqueInfo* pAnimUnq = pAnimInfo->getAnimUnqPointer();
-
-	// （MotionIDに従い）m_AttachIndex の設定
-	int CurAttachedMotion = pAnimUnq->m_CurAttachedMotion;
-	if( CurAttachedMotion>=0 )
-	{
-		pAnimInfo->m_AttachIndex = MV1AttachAnim( m_iModelHandle, CurAttachedMotion, -1, FALSE ) ;
-	}
-
-	// m_MotionTotalTime を取得
-	if( pAnimInfo->m_AttachIndex==-1 )
-	{ // アニメーション未設定
-		pAnimInfo->m_MotionTotalTime = 0.0f;
-	}
-	else if( !(pAnimUnq->m_bCutPartAnimation) )
-	{ // モーション切出し OFF
-		pAnimInfo->m_MotionTotalTime = MV1GetAttachAnimTotalTime( m_iModelHandle, pAnimInfo->m_AttachIndex ) ;	
-		pAnimInfo->m_CurPlayTime     = pAnimUnq->m_fAnimStartTime;
-		pAnimInfo->m_fAnimLength     = pAnimInfo->m_MotionTotalTime - pAnimUnq->m_fAnimStartTime;
-	}
-	else
-	{ // モーション切出し ON
-		// PlaySub の仕組みから、これで切出し実現できるはず
-		pAnimInfo->m_CurPlayTime     = pAnimUnq->m_fAnimStartTime;
-		pAnimInfo->m_MotionTotalTime = pAnimUnq->m_fAnimEndTime;
-		pAnimInfo->m_fAnimLength     = pAnimUnq->m_fAnimEndTime - pAnimUnq->m_fAnimStartTime;
-	}
-};
-*/
 
 void AnimationManager::setAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, bool SyncToPrv, float StartFrame )
 {
@@ -242,7 +195,9 @@ void AnimationManager::setAnimMain(
 	// ブレンド指定有無にかかわらず、先頭に新しいアニメーション構造体を挟んで、引数のパラメータをぶち込む。
 	m_AnimPlayInfoArray.insert(m_AnimPlayInfoArray.begin(), AnimPlayBackInfo( this, AnimID, (float)AnimSwitchTime ));
 
-	m_AnimPlayInfoArray[0].ReAttach();
+	//m_AnimPlayInfoArray.emplace(m_AnimPlayInfoArray.begin(), this, AnimID, (float)AnimSwitchTime);
+
+	m_AnimPlayInfoArray[0].AttachAni();
 
 	// ################## モーションの設定 #######################
 
@@ -313,6 +268,11 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 			it->m_fBlendRate = OverBlendRate;
 
 			it++;
+			// モーションのデタッチ処理（結局、こういう書き方になった...）
+			for(vector<AnimPlayBackInfo>::iterator itmp = it; itmp != m_AnimPlayInfoArray.end(); itmp++ )
+			{ 
+				itmp->DetachAni();
+			}
 			m_AnimPlayInfoArray.erase(it, m_AnimPlayInfoArray.end()); // 以降のモーション削除
 			break; // ループから抜ける
 		}
