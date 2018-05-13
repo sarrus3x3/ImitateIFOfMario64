@@ -1,3 +1,7 @@
+#include <fstream> 
+#include <sstream>  //カンマで区切るために必要
+#include <string>
+
 #include "VirtualController.h"
 
 #include "MyUtilities.h" // コントローラー描画のためのツール使用
@@ -16,7 +20,9 @@ VirtualController::VirtualController() :
 	RightPushCnt(0),
 	m_eInpuDeviceMode( ID_KeyBord ),
 	m_bAutoControlFlg(false),
-	m_dTimeSinceAutoControlStart(0)
+	m_dTimeSinceAutoControlStart(0),
+	m_eRecodeReplayState(ID_DoNothing),
+	m_dRecodeReplayElapsed(0)
 
 {
 	// 内容を設定
@@ -118,6 +124,22 @@ void VirtualController::Update( double time_elapsed )
 		if (m_bAutoControlFlg) UpdateAutoControl(time_elapsed);
 		break;
 	}
+
+	// コントローラ操作の記録＆再生機能 の処理
+	switch (m_eRecodeReplayState)
+	{
+	case ID_Recoding:
+		Update_RecodeControl(time_elapsed);
+		break;
+	case ID_Replaying:
+		Update_ReplayRecodedControl(time_elapsed);
+		break;
+	}
+
+	// ★検証のため暫定★
+	//m_dTimeSinceAutoControlStart += time_elapsed;
+	//m_RecodeControlArray.push_back( RecodeControl(m_dTimeSinceAutoControlStart, m_vStickL) );
+
 }
 
 void VirtualController::UpdateAsKeyBord()
@@ -629,4 +651,197 @@ void VirtualController::UpdateAutoControl(double TimeElaps)
 
 	return;
 
-};
+}
+
+// 操作記録の開始／終了
+// - コントローラステートの更新
+// - 終了時は、操作記録配列をファイルにダンプ
+void VirtualController::RecodeControlONOFF()
+{
+	// 再生中は、一度、再生モードを終了させてからでないと、記録モードに移ることはできない。
+	if (m_eRecodeReplayState == ID_Replaying) return;
+
+	if (m_eRecodeReplayState == ID_Recoding) // 記録モード中
+	{
+		// ### 記録モードの終了処理 
+
+		// 記録モードを終了
+		m_eRecodeReplayState = ID_DoNothing;
+
+		// 記録キューの内容をファイルにダンプする
+		SaveRecodeControlArray();
+
+		// 記録キューを初期化（念の為）
+		m_RecodeControlArray.clear();
+
+	}
+	else // それ以外
+	{
+		// ### 記録モードの開始処理 
+
+		// 記録モードを開始
+		m_eRecodeReplayState = ID_Recoding;
+
+		// 記録キューを初期化（念の為）
+		m_RecodeControlArray.clear();
+
+		// 記録開始からの時間の初期化をしなくてはならない！
+		m_dRecodeReplayElapsed = 0;
+
+	}
+
+}
+
+// 記録した操作の再生の開始／終了
+// - コントローラステートの更新
+// - 開始時に、操作記録配列にファイルからロード。
+void VirtualController::ReplayRecodedControlONOFF()
+{
+	// 録画モード中は、再生モードに入れない
+	if (m_eRecodeReplayState == ID_Recoding) return;
+
+	if (m_eRecodeReplayState == ID_Replaying) // 再生モード中
+	{
+		// ### 再生モードの終了処理 
+
+		// 再生モードを終了
+		m_eRecodeReplayState = ID_DoNothing;
+
+		// 記録キューを初期化（念の為）
+		m_RecodeControlArray.clear();
+
+	}
+	else // それ以外
+	{
+		// ### 再生モードの開始処理 
+
+		// 再生モードを開始
+		m_eRecodeReplayState = ID_Replaying;
+
+		// 記録キューを初期化（念の為）
+		m_RecodeControlArray.clear();
+
+		// 操作記録配列をファイルからロード。
+		LoadRecodeControlArray();
+
+		// 記録開始からの時間の初期化をしなくてはならない！
+		m_dRecodeReplayElapsed = 0;
+
+	}
+
+}
+
+// 記録キュー(m_RecodeControlArray)の内容をファイルにダンプする
+void VirtualController::SaveRecodeControlArray()
+{
+	std::ofstream fs("VirtualController-RecodeControlArray.txt", ios::out | ios::trunc); // 既存の内容を消去し、書き込み。
+
+	// すべての要素をcsv形式でファイル出力する。
+	for (int i = 0; i < m_RecodeControlArray.size(); i++)
+	{
+		fs << m_RecodeControlArray[i].m_dTime << "," 
+			<< m_RecodeControlArray[i].m_vStickLoc.x << "," 
+			<< m_RecodeControlArray[i].m_vStickLoc.y << std::endl;
+	}
+
+}
+
+
+// 記録キュー(m_RecodeControlArray)をファイルからロード
+//   C++メモ STLをできるだけ使ってCSVを読み込んでみる|http://www.tetsuyanbo.net/tetsuyanblog/23821
+
+// http://cplplus.web.fc2.com/Last3.html
+// http://www.cellstat.net/readcsv/ .. getline の分割結果をvector配列に格納
+// http://marycore.jp/prog/cpp/convert-string-to-number/ .. 文字列(string)を数値(intやfloat)に変換
+void VirtualController::LoadRecodeControlArray()
+{
+	std::ifstream fs("VirtualController-RecodeControlArray.txt");
+
+	// ファイルの中身を一行ずつ読み取る
+	string str = "";
+	while (getline(fs, str))
+	{
+		string tmp = "";
+		istringstream stream(str);
+		vector<string> result;
+		// 区切り文字がなくなるまで文字を区切っていく
+		while (getline(stream, tmp, ','))
+		{
+			result.push_back(tmp);
+		}
+		
+		m_RecodeControlArray.push_back(
+			RecodeControl(
+				stod(result[0]) , Vector2D(stod(result[1]), stod(result[2]))
+			)
+		);
+
+	}
+
+	fs.close();
+
+}
+
+// 操作記録時のコントローラの更新
+void VirtualController::Update_RecodeControl(double TimeElaps)
+{
+	// 経過時間の更新
+	m_dRecodeReplayElapsed += TimeElaps;
+
+	// 現在のコントローラの状態を記録キューに積み上げるだけ。
+	m_RecodeControlArray.push_back( RecodeControl(m_dRecodeReplayElapsed, m_vStickL) );
+}
+
+// 記録した操作の再生のコントローラの更新
+void VirtualController::Update_ReplayRecodedControl(double TimeElaps)
+{
+	// 経過時間の更新
+	m_dRecodeReplayElapsed += TimeElaps;
+
+	// 再生開始してからの経過時間が、記録キューの記録時間からオーバーしてれば終了する
+	if (m_RecodeControlArray.back().m_dTime < m_dRecodeReplayElapsed)
+	{
+		ReplayRecodedControlONOFF();
+		return;
+	}
+
+	// m_RecodeControlArray から２分法で、補完するための両端のインデックスを調べる。
+	int bgn = 0;
+	int end = m_RecodeControlArray.size() - 1;
+	while ((end - bgn) > 1) // 不等号、間違ってた
+	{
+		int mid = (bgn + end) / 2; // 整数同士の割算は少数点以下は切捨てられる。
+		
+		(m_RecodeControlArray[mid].m_dTime > m_dRecodeReplayElapsed ? end = mid : bgn = mid ); // ターゲット時間が記録時間を一致した場合はbgn側に寄せられるように設計
+		
+	}
+
+	assert( end >= bgn );
+
+	// 経過時間におけるスティック位置を補完処理して計算する
+	Vector2D NewStickLoc;
+	if (bgn == end) 
+	{
+		// bgn == end の場合
+		NewStickLoc = m_RecodeControlArray[bgn].m_vStickLoc;
+	}
+	else
+	{
+		// 線形補間を実施
+		double ratio = 
+			(m_RecodeControlArray[end].m_dTime - m_dRecodeReplayElapsed) / 
+			(m_RecodeControlArray[end].m_dTime - m_RecodeControlArray[bgn].m_dTime);
+		NewStickLoc = m_RecodeControlArray[bgn].m_vStickLoc + 
+			ratio * (m_RecodeControlArray[end].m_vStickLoc - m_RecodeControlArray[bgn].m_vStickLoc);
+	}
+
+
+	// コントローラ状態を更新
+	m_vStickL = NewStickLoc;
+
+	RoundingTinyStickTilt(); // なんとこれがないと動かない。内部で m_dStickL_len の更新をしていて、この整合がとれていないとバグるようだ...
+
+
+
+}
+;

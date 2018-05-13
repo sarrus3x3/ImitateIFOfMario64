@@ -168,7 +168,6 @@ public:
 	// m_XinputState の状態をデバック出力
 	void DBG_ShowXinputState();
 
-
 	// ##### 動作検証のための自動操作機能
 	// 動作の検証用に、事前に設計した操作(入力)を流し込む機能
 
@@ -186,8 +185,79 @@ public:
 	//自動操作開始してからの経過時間
 	double m_dTimeSinceAutoControlStart;
 
-	// 各変数の初期化を忘れずに。
+	// 2018/05/12 コントローラ操作の記録＆再生機能
 
+	enum RecodeReplayStateID
+	{
+		ID_DoNothing = 0, // ← 初期値
+		ID_Recoding  = 1,
+		ID_Replaying = 2
+	} m_eRecodeReplayState;
+
+	// 操作記録格納用の構造体
+	struct RecodeControl
+	{
+		double   m_dTime;     // 時刻
+		Vector2D m_vStickLoc; // スティック棒の位置
+
+		// コンストラクタ
+		RecodeControl(double Time, Vector2D StickLoc) :
+			m_dTime(Time),
+			m_vStickLoc(StickLoc)
+		{};
+
+	};
+
+	// 記録キュー::操作記録用の構造体配列（再生時／記録時で共用）
+	vector<RecodeControl> m_RecodeControlArray;
+
+	// 記録または再生が開始されてからの経過時間
+	double m_dRecodeReplayElapsed;
+
+	// 操作記録の開始／終了
+	// - コントローラステートの更新
+	// - 終了時は、記録キューをファイルにダンプ
+	void RecodeControlONOFF();
+
+	// 記録した操作の再生の開始／終了
+	// - コントローラステートの更新
+	// - 開始時に、記録キューにファイルからロード。
+	void ReplayRecodedControlONOFF();
+
+	// 記録キュー(m_RecodeControlArray)をファイルからロード
+	void LoadRecodeControlArray();
+
+	// 記録キュー(m_RecodeControlArray)の内容をファイルにダンプする
+	void SaveRecodeControlArray();
+
+	// 操作記録時のコントローラの更新
+	void Update_RecodeControl(double TimeElaps);
+
+	// 記録した操作の再生のコントローラの更新
+	void Update_ReplayRecodedControl(double TimeElaps);
+
+	// 仮想コントローラの状態を表示
+
+
+	// 検証
+	// * 正しく記録キューがダンプされることの確認
+	//   - 初期値 記録ON
+	//   - 常に記録キュー更新するように暫定作り込み
+	//   - RecodeControlONOFF を実行してダンプを実行
+	// * ダンプしたデータが正しく記録キューに読み込まれるか？
+	//   - 始めの確認でダンプしたデータを読み込ませる
+	//   - 使え！ブレークポイント！でメモリの内容を直接確認...
+
+	// ここまでなんとか今日中に！！！！
+
+	// Update処理 の修正
+	// * 別枠
+
+	// とりあえず、論理的には動くことはわかったので、
+	// 今度は実用性が有るかをかくにん。
+	// スローで、走りの位相確認して、mot切り替え
+	// → 通常再生でも目的にブレンドが見れるか？
+	// 一応、目的のタイミングで切り替えできている様子が確認できる...
+	//  まぁ、合格。
 
 };
-

@@ -390,7 +390,7 @@ void Break::Enter(PlayerCharacterEntity* pEntity)
 
 	// BreaktoStop2 の再生ピッチの計算
 	AnimTotalTime = PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[PlayerCharacterEntity::BreaktoStop2].m_fAnimInterval; 
-	BrakingDulation = pEntity->Velocity().len() / (60.0f * PlayerCharacterEntity::m_dConfigScaling);
+	BrakingDulation = pEntity->Velocity().len() / (40.0f * PlayerCharacterEntity::m_dConfigScaling);
 	m_fAnim_BreaktoStop_PlayPitch = (float)(AnimTotalTime / BrakingDulation);
 
 	// ### モーション再生
@@ -448,8 +448,8 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 	Vector3D VelDir = pEntity->Velocity() / VelSiz;
 
 	// 速度の大きさを更新
-	double deceleration = 60.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
-	//double deceleration = 30.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
+	// 2018/05/12 60 → 40 ※ Break::Enter にも減速度がハードコーディングしてあるから注意。
+	double deceleration = 40.0f * pEntity->TimeElaps() * PlayerCharacterEntity::m_dConfigScaling; // ブレーキ中の減速度
 	double NewVelSiz = MoveTowards(VelSiz, 0, deceleration);
 
 	// 新しい速度ベクトルを再構築

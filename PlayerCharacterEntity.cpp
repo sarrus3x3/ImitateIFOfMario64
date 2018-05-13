@@ -634,12 +634,19 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_sAnimName = "Running2";
 	pAnimUnq->m_CurAttachedMotion = 13;
 	pAnimUnq->m_bRepeatAnimation = true;
+	/*
 	pAnimUnq->m_bCutPartAnimation = false; 
 	pAnimUnq->m_fAnimStartTime = 5.0f; // 再生開始の起点、また歩きモーションと同期をとるための特異点的な場所。
 	// pAnimUnq->m_fAnimEndTime = 14.0f; // m_bCutPartAnimation=falseアニメーションにとって、m_fAnimEndTimeは参照されない。
 	pAnimUnq->m_fUniquePlayPitch = (float)(31.11 / 79.80); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
 	pAnimUnq->m_fAnimInterval = 14.0;
 	pAnimUnq->m_fExAnimStartTime = 1.0f; // [Turn]モーションからの接続で使用。
+	*/
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 0.0f; // 再生開始の起点、また歩きモーションと同期をとるための特異点的な場所。
+	pAnimUnq->m_fAnimEndTime = 14.0f; // m_bCutPartAnimation=falseアニメーションにとって、m_fAnimEndTimeは参照されない。
+	pAnimUnq->m_fUniquePlayPitch = (float)(31.11 / 79.80); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
+	pAnimUnq->m_fAnimInterval = 14.0;
 
 	// 2018/05/05
 
@@ -652,10 +659,14 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation = true;
 	//pAnimUnq->m_fAnimStartTime = 2.0f;  // 4.0までブレンド区間（はじめの２フレーム）
 	//pAnimUnq->m_fAnimStartTime = 15.0f;
-	pAnimUnq->m_fAnimStartTime = 17.0f;
-	pAnimUnq->m_fAnimEndTime = 23.0f;
 	//pAnimUnq->m_fAnimInterval = 8.0;
-	pAnimUnq->m_fAnimInterval = 6.0;
+	//--
+	//pAnimUnq->m_fAnimStartTime = 17.0f;
+	//pAnimUnq->m_fAnimEndTime = 23.0f;
+	//--
+	pAnimUnq->m_fAnimStartTime = 17.0f;
+	pAnimUnq->m_fAnimEndTime = 21.0f;
+	pAnimUnq->m_fAnimInterval = 4.0;
 
 	// --------- StandAfterBreak2 --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak2];
@@ -664,9 +675,9 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 14;
 	pAnimUnq->m_bRepeatAnimation = false;
 	pAnimUnq->m_bCutPartAnimation = true;
-	pAnimUnq->m_fAnimStartTime = 23.0f;
+	pAnimUnq->m_fAnimStartTime = 21.0f;
 	pAnimUnq->m_fAnimEndTime = 29.0f;
-	pAnimUnq->m_fAnimInterval = 6.0;
+	pAnimUnq->m_fAnimInterval = 8.0;
 	//pAnimUnq->m_fUniquePlayPitch = 1.0f; // 固有ピッチ２倍
 
 	// --------- StartRunning --------- 

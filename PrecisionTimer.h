@@ -55,7 +55,8 @@ inline double PrecisionTimer::TimeElapsed()
 
 	return m_TimeElapsed;
 	
-	//return 1.0/60.0;
+	//return 1.0 / 60.0;
+	//return 1.0/20.0;
 
 	//return 0.001;
 }

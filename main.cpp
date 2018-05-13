@@ -298,8 +298,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// もし、Bボタン（Ctrlキー）が押されたら、カメラモードを変更
 		if( VController.ButB.isNowPush() )
 		{
-			CurCameraMode = (CurCameraMode+1)%CameraWorkManager::m_iCameraModeMax;
-			CameraWorkManager::Instance()->setCameraMode( (CameraWorkManager::CameraModeID)CurCameraMode );
+			//CurCameraMode = (CurCameraMode+1)%CameraWorkManager::m_iCameraModeMax;
+			//CameraWorkManager::Instance()->setCameraMode( (CameraWorkManager::CameraModeID)CurCameraMode );
+
+			VController.RecodeControlONOFF();
 
 		}
 
@@ -322,7 +324,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		if( VController.ButY.isNowPush() )
 		{
 			// 自動操作モードオン／オフ
-			VController.AutoControlOnOff();
+			//VController.AutoControlOnOff();
+
+			//VController.RecodeControlONOFF();
+			
+			VController.ReplayRecodedControlONOFF();
 		}
 
 		// アニメーション物理演算のタイムステップを制御する
