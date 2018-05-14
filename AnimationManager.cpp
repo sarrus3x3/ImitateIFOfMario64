@@ -110,11 +110,6 @@ AnimationManager::AnimationManager() :
 	initAnimPhysics();
 
 };
-void AnimationManager::CleanUpAnim( AnimPlayBackInfo* pAnimInfo )
-{
-	pAnimInfo->m_bRemoved = true;
-	MV1DetachAnim( m_iModelHandle, pAnimInfo->m_AttachIndex ); // 古いアニメーションのデタッチ（デタッチしないとAnimationが混じって変なことになる）
-};
 
 // コンストラクタ
 AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerCharacterEntity::AnimationID AnimID, float AnimSwitchTime) :
@@ -127,7 +122,6 @@ AnimPlayBackInfo::AnimPlayBackInfo( AnimationManager* pAnimationManager, PlayerC
 	m_iPlayCount(0),
 	m_bPause(false),
 	m_bFinished(false),
-	m_bRemoved(false),
 	m_fAnimSwitchTime(AnimSwitchTime),
 	m_fBlendRemain(AnimSwitchTime)
 {
@@ -241,6 +235,7 @@ void AnimationManager::Play( PlayerCharacterEntity* pEntity )
 	PlayMain( telaps, Modelpos, Modelhead );
 
 }
+
 void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 {
 	// 予約アニメーションの再生可否を確認
@@ -301,24 +296,6 @@ void AnimationManager::PlayMain( double TimeElaps, Vector3D Pos, Vector3D Head )
 	// モデルセンタへのモーション位置の補正ベクトルを、
 	// PlayOneAnimで計算されたAnimPlayBackInfo.m_vCorrectionVecから計算
 	
-	// #### センター位置が固定になるように、モデル（描画）位置を補正するベクトル CorrectionVec を計算する
-	
-	// 多重ブレンド対応に伴い、位置補正機能はサポート外とする。
-
-	/*
-	// Cur側の位置補正情報取得
-	Vector3D CurCorrectVec = m_pCurAnimPlayInfo->m_vCorrectionVec;
-	float    CurBlendRate  = m_pCurAnimPlayInfo->m_fBlendRate;
-	
-	// Prv側の位置補正情報取得
-	Vector3D PrvCorrectVec = m_pPrvAnimPlayInfo->m_vCorrectionVec;
-	float    PrvBlendRate  = m_pPrvAnimPlayInfo->m_fBlendRate;
-	if( m_pPrvAnimPlayInfo->m_bRemoved ) PrvBlendRate = 0;
-	
-	// ブレンド考慮した最終位置補正ベクトルを計算
-	Vector3D CorrectionVec = ( CurBlendRate*CurCorrectVec + PrvBlendRate*PrvCorrectVec ) / (CurBlendRate+PrvBlendRate);
-	*/
-
 	// #### 位置補正をセンターフレームの座標変換行列に反映
 
 	// 位置補正用の座標変換行列を生成
@@ -414,27 +391,6 @@ void AnimationManager::PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Hea
 		MV1SetAttachAnimTime( m_iModelHandle, pPlayAnim->m_AttachIndex, pPlayAnim->m_CurPlayTime ) ;
 	}
 
-	// ##### アニメーション固有のアニメーション制御
-	
-	// センター位置が固定になるように、モデル（描画）位置を補正するベクトル CorrectionVec を計算する
-	Vector3D CorrectionVec( 0, 0, 0 );
-	if( pAnimUnq->m_bCorrectionToCenter )
-	{
-		Vector3D DesiredCntPos = pAnimUnq->m_vFixCenterPosLocal;
-		Vector3D CurFrmPos( MV1GetAttachAnimFrameLocalPosition( m_iModelHandle, pPlayAnim->m_AttachIndex, m_iCenterFrameIndex ) );
-		CorrectionVec = DesiredCntPos - CurFrmPos; // センターフレームの位置と望むセンター位置との差分を計算
-		if( pAnimUnq->m_bCorrectionToCenterButY )
-		{
-			CorrectionVec.y = 0; // y軸成分の補正をしないようにする
-		}
-	}
-
-	// アニメーション固有位置補正を加算
-	CorrectionVec += pPlayAnim->getAnimUnqPointer()->m_vPosShift;
-
-	// 計算した CorrectionVec を返却
-	pPlayAnim->m_vCorrectionVec = CorrectionVec; 
-	
 };
 
 void AnimationManager::ReserveAnim( PlayerCharacterEntity::AnimationID AnimID, double AnimSwitchTime, bool StopPrvAnim, float StartFrame )
@@ -454,6 +410,20 @@ void AnimationManager::PlayReservedAnim()
 		m_qAnimReservationQueue.pop();
 	}
 };
+
+AnimPlayBackInfo * AnimationManager::getAnimPlayBackInfoFromAnimID(PlayerCharacterEntity::AnimationID AnimID)
+{
+	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
+	{
+		if (m_AnimPlayInfoArray[i].m_eAnimID == AnimID)
+		{
+			return &m_AnimPlayInfoArray[i];
+		}
+	}
+
+	// 見つからなかったら null を返す。
+	return nullptr;
+}
 
 void AnimationManager::DrawAllow3D( Vector3D cnt, Vector3D heading )
 {
@@ -652,10 +622,7 @@ void AnimationManager::DBG_RenewModel( int ReneModelHandle )
 	// 古いモデルにアタッチされたアニメーションを一度デタッチ
 	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
 	{
-		if (!(m_AnimPlayInfoArray[i].m_bRemoved))
-		{
-			MV1DetachAnim(m_iModelHandle, m_AnimPlayInfoArray[i].m_AttachIndex); // 古いアニメーションのデタッチ（デタッチしないとAnimationが混じって変なことになる）
-		}
+		MV1DetachAnim(m_iModelHandle, m_AnimPlayInfoArray[i].m_AttachIndex); // 古いアニメーションのデタッチ（デタッチしないとAnimationが混じって変なことになる）
 	}
 
 	// FrameIndex系は大丈夫なはず（ボーンは触ってないので）
@@ -667,13 +634,10 @@ void AnimationManager::DBG_RenewModel( int ReneModelHandle )
 	// AnimPlayInfo->m_AttachIndex を更新
 	for (int i = 0; i < m_AnimPlayInfoArray.size(); i++)
 	{
-		if (!(m_AnimPlayInfoArray[i].m_bRemoved))
+		int CurAttachedMotion = m_AnimPlayInfoArray[i].getAnimUnqPointer()->m_CurAttachedMotion;
+		if (CurAttachedMotion >= 0)
 		{
-			int CurAttachedMotion = m_AnimPlayInfoArray[i].getAnimUnqPointer()->m_CurAttachedMotion;
-			if (CurAttachedMotion >= 0)
-			{
-				m_AnimPlayInfoArray[i].m_AttachIndex = MV1AttachAnim(m_iModelHandle, CurAttachedMotion, -1, FALSE);
-			}
+			m_AnimPlayInfoArray[i].m_AttachIndex = MV1AttachAnim(m_iModelHandle, CurAttachedMotion, -1, FALSE);
 		}
 	}
 

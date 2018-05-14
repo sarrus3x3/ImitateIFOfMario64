@@ -531,6 +531,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		DrawFormatString(0, width*colmun, 0xffffff, "Pos :%4f, %4f, %4f", PCEnti.Pos().x, PCEnti.Pos().y, PCEnti.Pos().z);
 		colmun++;
 
+		// 仮想コントローラの状態(操作の記録＆再生機能)
+		DrawFormatString(0, width*colmun, 0xffffff, "VirtualController::RecodeReplayState:%s", PCEnti.m_pVirCntrl->getRecodeReplayState().c_str());
+		colmun++;
+
+		
 		/*
 		// キャラクタのローカル座標情報を出力
 		DrawFormatString( 0, width*colmun, 0xffffff, "Head :%4f, %4f, %4f",PCEnti.Heading().x, PCEnti.Heading().y, PCEnti.Heading().z ); 

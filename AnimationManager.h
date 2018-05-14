@@ -108,11 +108,10 @@ struct AnimPlayBackInfo
 	int   m_iPlayCount;        // （setされてからの）アニメーションの再生回数
 	bool  m_bPause;            // アニメーション停止（静止）フラグ
 	bool  m_bFinished;         // アニメーション終了フラグ アニメーションが総再生時間まで再生された場合など。ループするアニメーションの場合は ON にならない。
-	bool  m_bRemoved;          // アニメーション破棄フラグ ONならアニメーション再生しない。アニメーションをデタッチするタイミングで ON にしている
-	Vector3D m_vCorrectionVec; // m_CurAttachedMotion ON の場合のモーション位置の補正ベクトル（PlayOneAnimで計算され、PlaySubでブレンド考慮して実際の位置補正を実行する。）
 	float m_fAnimLength;       // このアニメーションの再生にかかる時間
 
-							   // ブレンド制御に使用
+
+	// ブレンド制御に使用
 	float m_fBlendRemain;      // ブレンドの残り時間。0になった時に完全にこのアニメーションに遷移完了する。ブレンドなしの場合=0
 	float m_fAnimSwitchTime;   // アニメーション切替の設定時間
 
@@ -174,8 +173,6 @@ private:
 
 	// #### 補助メソッド ####
 	void PlayOneAnim( double TimeElaps, Vector3D Pos, Vector3D Head, AnimPlayBackInfo* pPlayAnim ); // Entity情報を参照させないで直接条件を指定してAnimationを描画する。
-	void CleanUpAnim( AnimPlayBackInfo* pAnimInfo ); // アニメーションの後処理を行う
-	//void InitAnimPlayInfoAsAnim( AnimPlayBackInfo* pAnimInfo, PlayerCharacterEntity::AnimationID AnimID ); // 引数のpAnimInfoを指定されたアニメーションで初期化する
 	void PlayReservedAnim(); // CurAnimが再生終了したかをチェックし、再生終了していれば予約されたアニメーションを再生設定する。
 	void setAnimMain( 
 		PlayerCharacterEntity::AnimationID, 
@@ -223,19 +220,13 @@ public:
 	// ----- m_pCurAnimPlayInfoのアニメーション名を取得
 	string getCurAnimName(){ return m_AnimPlayInfoArray[0].getAnimUnqPointer()->m_sAnimName; };
 
-	// ----- m_pPrvAnimPlayInfoのアニメーション名を取得
-	// これって、m_pPrvAnimPlayInfo がセットされていなかった場合の動作ってどうなるんだ？
-	// ま、大丈夫だろ。
-	string getPrvAnimName() { return "Now this method is not supported..."; };
-
 	// ----- m_pCurAnimPlayInfoの再生にかかる時間を取得
 	float getCurAnimLength(){ return m_AnimPlayInfoArray[0].m_fAnimLength; };
 
-	// ----- AnimUniqueInfo （各モーションの固有情報）の情報を取得する
-	inline AnimUniqueInfo* getAnimUnqPointer(PlayerCharacterEntity::AnimationID AnimID )
-	{
-		return &(PlayerCharacterEntity::AnimUniqueInfoManager::Instance()->m_pAnimUniqueInfoContainer[AnimID]);
-	}
+	// ----- AnimIDで指定されたモーションを、モーションキューから新しい順に検索して構造体ポインタを返す
+	// 指定されたモーションが見つからなかった場合はNULLを返す。
+	AnimPlayBackInfo* getAnimPlayBackInfoFromAnimID(PlayerCharacterEntity::AnimationID AnimID );
+
 
 
 	// #### 補助メソッド ####

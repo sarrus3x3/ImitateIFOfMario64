@@ -65,9 +65,23 @@ void Standing::Enter( PlayerCharacterEntity* pEntity )
 	}
 	else if( pEntity->isMatchPrvState( Break::Instance() ) )
 	{
-		// ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak2);
-		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2, 10.0 );
+		// ## ダッシュからの切返し後であれば、ブレーキ後の起き上がりのアニメーションを再生する
+		
+		// 【走り止まり／急ブレーキの走りから接続最適化】
+		// モーションを切り替える時に、同じ向きのモーションを再生するようにする。
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn
+			|| pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2) // BreaktoStopになってると思うが、念の為両方のmotを書いておく
+		{
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak2);
+			pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2, 2.0); // 10.0→2.0にした。
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn_R
+			|| pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2_R) // BreaktoStopになってると思うが、念の為両方のmotを書いておく
+		{
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StandAfterBreak2_R);
+			pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Standing2, 5.0);
+		}
+		
 		pEntity->m_pAnimMgr->setPitch(20.0); // ピッチを調整
 
 	}
@@ -394,19 +408,65 @@ void Break::Enter(PlayerCharacterEntity* pEntity)
 	m_fAnim_BreaktoStop_PlayPitch = (float)(AnimTotalTime / BrakingDulation);
 
 	// ### モーション再生
+	// 【走り止まり／急ブレーキの走りから接続最適化】
 	//   続いて切返しに入るか、そのまま停止するか、どちらのモーションのを再生するか判定。
 	//   判定ロジックは、RunStateでBreakStateに遷移するときの条件を同じ。
 	if (!(pEntity->MoveInput().isZero()))
 	{ // スティック入力あり。
-		// 切返し動作に接続するモーションを再生
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0); // ブレーキのアニメーションを設定
+
+		// *「走り」のモーションを検索してみつかれば、そこから位相（再生位置）を取得して、再生する急ブレーキモーションの向きを判定する。
+		AnimPlayBackInfo* pAnimInfo = pEntity->m_pAnimMgr->getAnimPlayBackInfoFromAnimID(PlayerCharacterEntity::Running2);
+		if (pAnimInfo != nullptr)
+		{
+			// 走りmotからの接続において、走りmotの再生位置に応じて、どちらの向きのmotを再生するかを判定する。
+			float PlayPos = pAnimInfo->m_CurPlayTime;
+			if (4.0 <= PlayPos && PlayPos < 11.0)
+			{
+				// 逆向きmotへ接続
+				pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn_R, 1.0); // ブレーキのアニメーションを設定
+			}
+			else
+			{
+				// 正向きmotへ接続
+				pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0); // ブレーキのアニメーションを設定
+			}
+		}
+		// * 「走り」モーションが検索して、見つからなかった場合は、「走り出し」になっているはずなので、正向き接続のmotを再生する。
+		else
+		{
+			// 正向きで接続する
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn_R, 1.0); // ブレーキのアニメーションを設定
+		}
 		pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoTurn_PlayPitch);
+
 	}
 	else
 	{ // スティック入力なし。
-		// そのまま停止するモーションを再生
-		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0); // ブレーキのアニメーションを設定
+	  // *「走り」のモーションを検索してみつかれば、そこから位相（再生位置）を取得して、再生する急ブレーキモーションの向きを判定する。
+		AnimPlayBackInfo* pAnimInfo = pEntity->m_pAnimMgr->getAnimPlayBackInfoFromAnimID(PlayerCharacterEntity::Running2);
+		if (pAnimInfo != nullptr)
+		{
+			// 走りmotからの接続において、走りmotの再生位置に応じて、どちらの向きのmotを再生するかを判定する。
+			float PlayPos = pAnimInfo->m_CurPlayTime;
+			if (4.0 <= PlayPos && PlayPos < 11.0)
+			{
+				// 逆向きmotへ接続
+				pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0); // ブレーキのアニメーションを設定
+			}
+			else
+			{
+				// 正向きmotへ接続
+				pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2_R, 1.0); // ブレーキのアニメーションを設定
+			}
+		}
+		// * 「走り」モーションが検索して、見つからなかった場合は、「走り出し」になっているはずなので、正向き接続のmotを再生する。
+		else
+		{
+			// 正向きで接続する
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0); // ブレーキのアニメーションを設定
+		}
 		pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoStop_PlayPitch);
+
 	}
 
 
@@ -515,17 +575,36 @@ void Break::Calculate(PlayerCharacterEntity* pEntity, PhysicalQuantityVariation&
 	//   あー、だからAnimUnqInfoにインターバル値が設定してあったんだな。。。
 	if (!(pEntity->MoveInput().isZero()))
 	{ // スティック入力あり。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoTurn)
+		// 切返し動作に接続するモーションを再生
+
+		// 【走り止まり／急ブレーキの走りから接続最適化】
+		// モーションを切り替える時に、同じ向きのモーションを再生するようにする。
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2)
 		{
-			// 切返し動作に接続するモーションを再生
-			pEntity->m_pAnimMgr->setAnim( PlayerCharacterEntity::BreaktoTurn, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド） ← 
+			// 正向き接続
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn_R, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド） ← 
+			pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoTurn_PlayPitch);
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2_R )
+		{
+			// 逆向き接続
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoTurn, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド） ← 
 			pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoTurn_PlayPitch);
 		}
 
 	}
 	else
 	{ // スティック入力なし。
-		if (pEntity->m_pAnimMgr->getCurAnimID() != PlayerCharacterEntity::BreaktoStop2)
+
+		// 【走り止まり／急ブレーキの走りから接続最適化】
+		// モーションを切り替える時に、同じ向きのモーションを再生するようにする。
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn)
+		{
+			// そのまま停止するモーションを再生
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2_R, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
+			pEntity->m_pAnimMgr->setPitch(m_fAnim_BreaktoStop_PlayPitch);
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn_R)
 		{
 			// そのまま停止するモーションを再生
 			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::BreaktoStop2, 1.0, false, true); // 位相を保ちながら切り替え（ブレンド）
@@ -566,8 +645,20 @@ void Turn::Enter(PlayerCharacterEntity* pEntity)
 	// タイマオン
 	pEntity->StopWatchOn();
 
-	// 切返し動作のアニメーションを再生
-	pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turn, 0.0); // ブレンドするとモーション破綻する問題あるため
+	// ## 切返し動作のアニメーションを再生
+	
+	// 【走り止まり／急ブレーキの走りから接続最適化】
+	// モーションを切り替える時に、同じ向きのモーションを再生するようにする。
+	if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn
+		|| pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2) // Turnなので基本は、BreaktoTurnになってると思うが、念の為両方のmotを書いておく
+	{
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turn, 0.0); // ブレンドするとモーション破綻する問題あるため
+	}
+	else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoTurn_R
+		|| pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::BreaktoStop2_R) // Turnなので基本は、BreaktoTurnになってると思うが、念の為両方のmotを書いておく
+	{
+		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Turn_R, 0.0); // ブレンドするとモーション破綻する問題あるため
+	}
 
 	// TurnDulation 時間内にアニメーション再生が完了するように再生ピッチを調整
 	float AnimTotalTime = pEntity->m_pAnimMgr->getCurAnimLength(); // TurnFullの時間 + TurnFinalFlyの時間。ハードコーディングでスミマセン。
@@ -1701,6 +1792,19 @@ void Run::Enter(PlayerCharacterEntity* pEntity)
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running2, 0.0, true, false, 1.0f);
 		
 		//pEntity->m_pAnimMgr->setAnimExStartTime(PlayerCharacterEntity::Running2, 0.0);
+
+		// 【走り止まり／急ブレーキの走りから接続最適化】
+		// 走りmotの開始位置も、それぞれの向きのモーション毎に適切な値を設定する。
+		if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Turn)
+		{
+			// 切返し動作からの接続の場合は、滑らかに接続するように、走りモーションの再生開始位置を特別に設定する。
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running2, 0.0, true, false, 1.0f);
+		}
+		else if (pEntity->m_pAnimMgr->getCurAnimID() == PlayerCharacterEntity::Turn_R)
+		{
+			// 切返し動作からの接続の場合は、滑らかに接続するように、走りモーションの再生開始位置を特別に設定する。
+			pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::Running2, 0.0, true, false, 8.0f);
+		}
 
 	}
 	else

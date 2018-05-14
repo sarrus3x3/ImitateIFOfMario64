@@ -634,14 +634,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_sAnimName = "Running2";
 	pAnimUnq->m_CurAttachedMotion = 13;
 	pAnimUnq->m_bRepeatAnimation = true;
-	/*
-	pAnimUnq->m_bCutPartAnimation = false; 
-	pAnimUnq->m_fAnimStartTime = 5.0f; // 再生開始の起点、また歩きモーションと同期をとるための特異点的な場所。
-	// pAnimUnq->m_fAnimEndTime = 14.0f; // m_bCutPartAnimation=falseアニメーションにとって、m_fAnimEndTimeは参照されない。
-	pAnimUnq->m_fUniquePlayPitch = (float)(31.11 / 79.80); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
-	pAnimUnq->m_fAnimInterval = 14.0;
-	pAnimUnq->m_fExAnimStartTime = 1.0f; // [Turn]モーションからの接続で使用。
-	*/
 	pAnimUnq->m_bCutPartAnimation = true;
 	pAnimUnq->m_fAnimStartTime = 0.0f; // 再生開始の起点、また歩きモーションと同期をとるための特異点的な場所。
 	pAnimUnq->m_fAnimEndTime = 14.0f; // m_bCutPartAnimation=falseアニメーションにとって、m_fAnimEndTimeは参照されない。
@@ -678,7 +670,6 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_fAnimStartTime = 21.0f;
 	pAnimUnq->m_fAnimEndTime = 29.0f;
 	pAnimUnq->m_fAnimInterval = 8.0;
-	//pAnimUnq->m_fUniquePlayPitch = 1.0f; // 固有ピッチ２倍
 
 	// --------- StartRunning --------- 
 	pAnimUnq = &m_pAnimUniqueInfoContainer[StartRunning];
@@ -700,4 +691,50 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_bCutPartAnimation = true;
 	pAnimUnq->m_fAnimStartTime = 0.0f;
 	pAnimUnq->m_fAnimEndTime = 6.0f;
+
+	// --------- BreaktoTurn_R --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreaktoTurn_R];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreaktoTurn_R";
+	pAnimUnq->m_CurAttachedMotion = 17;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	//pAnimUnq->m_fAnimStartTime = 1.0f; // 3.0までブレンド区間（はじめの２フレーム）
+	pAnimUnq->m_fAnimStartTime = 3.0f;
+	pAnimUnq->m_fAnimEndTime = 7.0f;
+	pAnimUnq->m_fAnimInterval = 4.0;
+
+	// --------- Turn_R --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[Turn_R];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "Turn_R";
+	pAnimUnq->m_CurAttachedMotion = 18;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 5.0f;
+	pAnimUnq->m_fAnimEndTime = 10.0f;
+
+	// --------- BreaktoStop2_R --------- 
+	pAnimUnq = &m_pAnimUniqueInfoContainer[BreaktoStop2_R];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "BreaktoStop2_R";
+	pAnimUnq->m_CurAttachedMotion = 16;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 17.0f;
+	pAnimUnq->m_fAnimEndTime = 21.0f;
+	pAnimUnq->m_fAnimInterval = 4.0;
+
+	// --------- StandAfterBreak2_R --------- 
+	// これだけは、ただ列挙型名と、AttachedMotionを変更するだけではなく、定義区間の微調整が必要。。
+	pAnimUnq = &m_pAnimUniqueInfoContainer[StandAfterBreak2_R];
+	pAnimUnq->init();
+	pAnimUnq->m_sAnimName = "StandAfterBreak2_R";
+	pAnimUnq->m_CurAttachedMotion = 16;
+	pAnimUnq->m_bRepeatAnimation = false;
+	pAnimUnq->m_bCutPartAnimation = true;
+	pAnimUnq->m_fAnimStartTime = 21.0f;
+	pAnimUnq->m_fAnimEndTime = 23.0f;    // StandAfterBreak2 を違うので注意
+	pAnimUnq->m_fAnimInterval = 2.0;     // StandAfterBreak2 を違うので注意
+
 };

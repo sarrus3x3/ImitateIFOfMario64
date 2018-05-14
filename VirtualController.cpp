@@ -136,10 +136,6 @@ void VirtualController::Update( double time_elapsed )
 		break;
 	}
 
-	// ÅöåüèÿÇÃÇΩÇﬂébíËÅö
-	//m_dTimeSinceAutoControlStart += time_elapsed;
-	//m_RecodeControlArray.push_back( RecodeControl(m_dTimeSinceAutoControlStart, m_vStickL) );
-
 }
 
 void VirtualController::UpdateAsKeyBord()
@@ -843,5 +839,24 @@ void VirtualController::Update_ReplayRecodedControl(double TimeElaps)
 
 
 
+}
+string VirtualController::getRecodeReplayState()
+{
+	string str;
+
+	switch (m_eRecodeReplayState)
+	{
+	case ID_DoNothing:
+		str = "ID_DoNothing";
+		break;
+	case ID_Recoding:
+		str = "ID_Recoding";
+		break;
+	case ID_Replaying:
+		str = "ID_Replaying";
+		break;
+	}
+
+	return str;
 }
 ;

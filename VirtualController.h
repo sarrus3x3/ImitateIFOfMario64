@@ -236,8 +236,8 @@ public:
 	// 記録した操作の再生のコントローラの更新
 	void Update_ReplayRecodedControl(double TimeElaps);
 
-	// 仮想コントローラの状態を表示
-
+	// コントローラ操作の記録＆再生機能についての仮想コントローラの状態を表示
+	string getRecodeReplayState();
 
 	// 検証
 	// * 正しく記録キューがダンプされることの確認
