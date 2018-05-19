@@ -423,7 +423,7 @@ PlayerCharacterEntity::AnimUniqueInfoManager::AnimUniqueInfoManager()
 	pAnimUnq->m_CurAttachedMotion = 2; 
 	pAnimUnq->m_vPosShift = Vector3D( 0.0, 0.0, 4.75 );
 	pAnimUnq->m_fUniquePlayPitch = (float)(14.0/12.0); // Running のアニメーションと同期させるため、固有の再生ピッチを定義
-	pAnimUnq->m_fAnimStartTime   = 4.0f;
+	pAnimUnq->m_fAnimStartTime   = 0.0f;
 	pAnimUnq->m_fAnimInterval    = 14.0;
 
 	// --------- Running --------- 

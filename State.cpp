@@ -1811,7 +1811,7 @@ void Run::Enter(PlayerCharacterEntity* pEntity)
 	{
 		// 歩き出し ＋ 歩き中を予約再生。
 		pEntity->m_pAnimMgr->setAnim(PlayerCharacterEntity::StartWalking ); // 歩き出しモーションを再生
-		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Walking, 0.0, true, 6.0); // 歩き中を開始位置を指定して予約再生
+		pEntity->m_pAnimMgr->ReserveAnim(PlayerCharacterEntity::Walking, 0.0, true, 0.0); // 歩き中を開始位置を指定して予約再生
 	}
 
 
